@@ -7,7 +7,6 @@ import tempfile
 import os
 import platform
 import sys
-import locale
 from threading import Timer
 
 logging.basicConfig(level=logging.INFO)
@@ -190,7 +189,6 @@ input = mock_input
         }), 500
 
 def create_process(temp_file: str, language: str, env: dict) -> subprocess.Popen:
-    """Create a subprocess for code execution"""
     command = SUPPORTED_LANGUAGES[language]['command'] + [temp_file]
     
     kwargs = {
@@ -210,7 +208,6 @@ def create_process(temp_file: str, language: str, env: dict) -> subprocess.Popen
     return subprocess.Popen(command, **kwargs)
 
 def run_with_timeout(process: subprocess.Popen) -> str:
-    """Run process with timeout"""
     def kill_process():
         try:
             process.kill()
