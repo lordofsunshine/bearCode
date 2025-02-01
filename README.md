@@ -30,3 +30,6 @@ bearChat is a web-based chat interface that provides an AI-powered conversationa
 
 ### 2. Quick Start
 - Simply run *start.bat* - it will automatically:
+- Create a virtual environment
+- Install all required dependencies
+- Start the application
