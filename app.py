@@ -16,7 +16,6 @@ logger = logging.getLogger(__name__)
 app = Flask(__name__)
 client = Client()
 
-# Add chat history storage
 chat_histories = {}
 
 MAX_MESSAGE_LENGTH = 4000
@@ -35,11 +34,9 @@ SUPPORTED_LANGUAGES = {
 }
 
 class ExecutionError(Exception):
-    """Custom exception for code execution errors"""
     pass
 
 def validate_code(code: str, language: str) -> None:
-    """Validate code before execution"""
     if not code or not language:
         raise ValueError("Code and language must not be empty")
     
@@ -54,7 +51,6 @@ def validate_code(code: str, language: str) -> None:
             raise ValueError(f"Usage of '{banned}' is not allowed for security reasons")
 
 def create_safe_execution_environment():
-    """Create a safe environment for code execution"""
     env = os.environ.copy()
     env.update({
         'PYTHONIOENCODING': 'utf-8',
@@ -83,14 +79,11 @@ def chat():
             
         logger.info(f"Received message: {message}")
         
-        # Get or create chat history
         if chat_id not in chat_histories:
             chat_histories[chat_id] = []
         
-        # Add user message to history
         chat_histories[chat_id].append({"role": "user", "content": message})
         
-        # Create messages array with history
         messages = chat_histories[chat_id][-5:]  # Keep last 5 messages for context
         
         response = client.chat.completions.create(
@@ -102,7 +95,6 @@ def chat():
         
         response_text = response.choices[0].message.content
         
-        # Add assistant response to history
         chat_histories[chat_id].append({"role": "assistant", "content": response_text})
         
         logger.info(f"API response: {response_text[:100]}...")
