@@ -83,7 +83,7 @@ def chat():
         
         chat_histories[chat_id].append({"role": "user", "content": message})
         
-        messages = chat_histories[chat_id][-5:]  # Keep last 5 messages for context
+        messages = chat_histories[chat_id][-5:] # 5 messages
         
         response = client.chat.completions.create(
             model="gpt-4o-mini",
