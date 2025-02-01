@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>bearCode</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/styles/atom-one-dark.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/marked/9.1.2/marked.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/highlight.min.js"></script>
+</head>
+<body>
+    <div class="container">
+        <div class="chat-container">
+            <div class="chat-header">
+                <button class="new-chat-button" id="new-chat-button">
+                    <svg width="16" height="16" viewBox="0 0 24 24">
+                        <path fill="currentColor" d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/>
+                    </svg>
+                    New Chat
+                </button>
+                <h1>bearCode</h1>
+                <div class="status-container">
+                    <div class="api-status">
+                        <span class="status-dot"></span>
+                        <span class="status-text">API Online</span>
+                    </div>
+                    <div class="status-separator"></div>
+                    <div class="loading-indicator">
+                        <div class="loading-spinner"></div>
+                        <span class="loading-text">Ready</span>
+                    </div>
+                </div>
+            </div>
+            <div class="chat-messages" id="chat-messages">
+                <div class="welcome-message">
+                    <h2 id="chat-title">New Chat</h2>
+                </div>
+            </div>
+            <div class="chat-input-container">
+                <textarea id="user-input" placeholder="Type your message..." rows="1"></textarea>
+                <button id="send-button">
+                    <svg viewBox="0 0 24 24" width="24" height="24">
+                        <path fill="currentColor" d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/>
+                    </svg>
+                </button>
+                <button id="stop-button" class="stop-button">Stop</button>
+            </div>
+        </div>
+    </div>
+    <div class="code-execution-popup" id="codeExecutionPopup">
+        <div class="popup-content">
+            <div class="popup-header">
+                <div class="header-left">
+                    <h3>Code Execution</h3>
+                    <span class="language-badge" id="executionLanguage">python</span>
+                    <span style="opacity: .3;font-size: 12px;">(beta)</span>
+                </div>
+                <button id="closeExecutionPopup" class="close-popup" type="button" aria-label="Close" onclick="window.closeCodeExecutionPopup()">
+                    <svg width="24" height="24" viewBox="0 0 24 24">
+                        <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/>
+                    </svg>
+                </button>
+            </div>
+            <div class="popup-body">
+                <div class="execution-status" id="executionStatus">
+                    <div class="status-indicator running">
+                        <div class="spinner"></div>
+                        <span>Running code...</span>
+                    </div>
+                </div>
+                <div class="execution-result" id="executionResult"></div>
+            </div>
+        </div>
+    </div>
+    <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+</body>
+</html> 

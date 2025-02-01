@@ -1,0 +1,6 @@
+flask
+g4f
+cryptography
+python-dotenv
+colorama
+requests
