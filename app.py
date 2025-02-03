@@ -15,7 +15,6 @@ from quart_cors import cors
 import asyncio
 import re
 import hypercorn.asyncio
-import sqlite3
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -127,129 +126,105 @@ def create_safe_execution_environment():
     })
     return env
 
-CHATS_DIR = 'chat_storage'
-if not os.path.exists(CHATS_DIR):
-    os.makedirs(CHATS_DIR)
-
-# Инициализация базы данных
-def init_db():
-    conn = sqlite3.connect('chats.db')
-    c = conn.cursor()
-    c.execute('''
-        CREATE TABLE IF NOT EXISTS chats (
-            chat_id TEXT PRIMARY KEY,
-            messages TEXT,
-            metadata TEXT,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-        )
-    ''')
-    conn.commit()
-    conn.close()
-
-# Функции для работы с базой данных
-def save_chat(chat_id, messages, metadata=None):
-    try:
-        conn = sqlite3.connect('chats.db')
-        c = conn.cursor()
-        
-        if metadata is None:
-            metadata = {
-                'created_at': datetime.now().isoformat(),
-                'title': 'New Chat'
-            }
-            
-        c.execute('''
-            INSERT OR REPLACE INTO chats (chat_id, messages, metadata)
-            VALUES (?, ?, ?)
-        ''', (
-            chat_id,
-            json.dumps(messages),
-            json.dumps(metadata)
-        ))
-        
-        conn.commit()
-        conn.close()
-    except Exception as e:
-        logger.error(f"Error saving chat: {e}")
-        raise
-
-def load_chat(chat_id):
-    try:
-        conn = sqlite3.connect('chats.db')
-        c = conn.cursor()
-        
-        c.execute('SELECT messages, metadata FROM chats WHERE chat_id = ?', (chat_id,))
-        result = c.fetchone()
-        conn.close()
-        
-        if result is None:
-            return None
-            
-        messages, metadata = result
-        return {
-            'messages': json.loads(messages),
-            'metadata': json.loads(metadata)
-        }
-    except Exception as e:
-        logger.error(f"Error loading chat: {e}")
-        return None
-
-init_db()
-
 @app.route('/')
 async def home():
     return await render_template('index.html')
 
 @app.route('/chat', methods=['POST'])
 async def chat():
-    data = await request.get_json()
-    message = data.get('message')
-    chat_id = data.get('chatId')
-    
-    if not message:
-        return jsonify({'error': 'No message provided'}), 400
-
     try:
-        response = await client.chat.completions.create(
-            messages=[{"role": "user", "content": message}]
-        )
+        data = await request.get_json()
+        if not data or 'message' not in data:
+            return jsonify({"error": "No message provided"}), 400
+            
+        message = data['message']
+        chat_id = data.get('chatId')
+        especially_relevant_code_snippet = data.get('especially_relevant_code_snippet', [])
         
-        if chat_id:
-            chat_data = load_chat(chat_id) or {'messages': [], 'metadata': {'created_at': datetime.now().isoformat()}}
-            chat_data['messages'].append({"role": "user", "content": message})
-            chat_data['messages'].append({"role": "assistant", "content": response.choices[0].message.content})
-            save_chat(chat_id, chat_data['messages'], chat_data['metadata'])
+        if len(message) > MAX_MESSAGE_LENGTH:
+            return jsonify({"error": "Message too long"}), 400
+            
+        logger.info(f"Received message: {message}")
+        logger.info(f"Received snippets: {especially_relevant_code_snippet}")
+        
+        if chat_id not in chat_storage['messages']:
+            chat_storage['messages'][chat_id] = []
 
-        return jsonify({'response': response.choices[0].message.content})
+        context = []
+        context.append({"role": "system", "content": "You are a helpful AI assistant focused on programming and code analysis."})
+        
+        if especially_relevant_code_snippet:
+            files_context = "Here are the relevant files for context:\n\n"
+            for file in especially_relevant_code_snippet:
+                files_context += f"File: {file['path']}\n```{file['language']}\n{file['content']}\n```\n\n"
+            context.append({"role": "user", "content": files_context})
+        
+        context.append({"role": "user", "content": message})
+        chat_storage['messages'][chat_id].append({"role": "user", "content": message})
+
+        try:
+            loop = asyncio.get_event_loop()
+            response = await loop.run_in_executor(
+                None,
+                lambda: client.chat.completions.create(
+                    model="gpt-4o-mini",
+                    messages=context,
+                    web_search=False,
+                    stream=False
+                )
+            )
+            
+            response_text = response.choices[0].message.content
+            response_text = filter_unwanted_content(response_text) 
+            
+            chat_storage['messages'][chat_id].append({"role": "assistant", "content": response_text})
+            
+            logger.info(f"API response: {response_text[:100]}...")
+            
+            return jsonify({"response": response_text})
+            
+        except Exception as e:
+            logger.error(f"API call error: {str(e)}")
+            return jsonify({"error": "Failed to get response from AI"}), 500
+            
     except Exception as e:
-        logger.error(f"Error in chat: {e}")
-        return jsonify({'error': str(e)}), 500
+        logger.error(f"Error processing request: {str(e)}")
+        return jsonify({"error": "Internal server error"}), 500
 
 @app.route('/generate-title', methods=['POST'])
 async def generate_title():
-    data = await request.get_json()
-    message = data.get('message')
-    chat_id = data.get('chatId')
-    
-    if not message or not chat_id:
-        return jsonify({'error': 'Message and chat ID required'}), 400
-        
     try:
-        title_prompt = f"Generate a short, concise title (max 6 words) for a chat that starts with this message: {message}"
-        response = await client.chat.completions.create(
-            messages=[{"role": "user", "content": title_prompt}]
-        )
-        title = response.choices[0].message.content.strip('" ')
-        
-        chat_data = load_chat(chat_id)
-        if chat_data:
-            chat_data['metadata']['title'] = title
-            save_chat(chat_id, chat_data['messages'], chat_data['metadata'])
+        data = await request.get_json()
+        if not data or 'message' not in data:
+            return jsonify({"error": "No message provided"}), 400
+
+        messages = [
+            {"role": "system", "content": "Generate a short, concise title (2-5 words) for a chat that starts with this message. Response should contain only the title."},
+            {"role": "user", "content": data['message']}
+        ]
+
+        try:
+            loop = asyncio.get_event_loop()
+            response = await loop.run_in_executor(
+                None,
+                lambda: client.chat.completions.create(
+                    model="gpt-4o-mini",
+                    messages=messages,
+                    web_search=False,
+                    stream=False
+                )
+            )
             
-        return jsonify({'title': title})
+            title = response.choices[0].message.content.strip()
+            return jsonify({"title": title})
+            
+        except Exception as e:
+            logger.error(f"API call error: {str(e)}")
+            return jsonify({"error": "Failed to generate title"}), 500
+            
     except Exception as e:
-        logger.error(f"Error generating title: {e}")
-        return jsonify({'error': str(e)}), 500
+        logger.error(f"Error generating title: {str(e)}")
+        return jsonify({"error": str(e)}), 500
 
 def filter_unwanted_content(text: str) -> str:
     unwanted_patterns = [
@@ -377,30 +352,44 @@ async def health_check():
 
 @app.route('/share-chat', methods=['POST'])
 async def share_chat():
-    data = await request.get_json()
-    chat_id = data.get('chatId')
-    
-    if not chat_id:
-        return jsonify({'error': 'No chat ID provided'}), 400
+    try:
+        data = await request.get_json()
+        chat_id = data.get('chatId')
         
-    chat_data = load_chat(chat_id)
-    if not chat_data:
-        return jsonify({'error': 'Chat not found'}), 404
-        
-    share_url = f"{request.host_url}shared/{chat_id}"
-    return jsonify({'share_url': share_url})
+        if not chat_id:
+            return jsonify({'error': 'Chat ID is required'}), 400
+
+        if chat_id not in chat_storage['messages']:
+            return jsonify({'error': 'Chat not found'}), 404
+
+        shared_chats[chat_id] = {
+            'messages': chat_storage['messages'].get(chat_id, []),
+            'metadata': {
+                'created_at': datetime.now().isoformat(),
+                'title': chat_storage.get('metadata', {}).get(chat_id, {}).get('title', 'Shared Chat')
+            }
+        }
+
+        share_url = f"{request.host_url}shared/{chat_id}"
+        return jsonify({
+            'share_id': chat_id,
+            'share_url': share_url
+        })
+    except Exception as e:
+        logger.error(f"Share chat error: {str(e)}") 
+        return jsonify({'error': str(e)}), 500
 
 @app.route('/shared/<chat_id>')
 async def view_shared_chat(chat_id):
-    chat_data = load_chat(chat_id)
-    if not chat_data:
-        return await render_template('error.html',
-            error_code=404,
-            error_title='Chat Not Found',
-            error_message='The chat you\'re looking for doesn\'t exist or has been deleted.'
-        ), 404
-        
-    return await render_template('shared_chat.html', chat=chat_data)
+    if chat_id not in shared_chats:
+        abort(404)
+    
+    shared_chat = shared_chats[chat_id]
+    return await render_template(
+        'shared_chat.html',
+        chat=shared_chat,
+        share_id=chat_id
+    )
 
 @app.route('/files/<path:filename>')
 async def serve_file(filename):
