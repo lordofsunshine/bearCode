@@ -1,6 +1,8 @@
-flask
+quart
+quart-cors
 g4f
 cryptography
 python-dotenv
 colorama
 requests
+hypercorn
