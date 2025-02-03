@@ -1,28 +1,56 @@
 # bearCode *(AI)*
-bearChat is a web-based chat interface that provides an AI-powered conversational experience. It features a clean, dark-themed UI with real-time message updates and code execution capabilities.
+**bearChat** is an advanced AI chat platform featuring code execution capabilities, real-time message streaming, and syntax highlighting. Built with a modern dark interface, it supports Python and JavaScript code running in an isolated environment, chat sharing functionality, and comprehensive markdown formatting. The platform combines powerful development tools with an intuitive chat experience, making it ideal for both coding assistance and general AI interaction.
 
-<img alt="Banner" src="https://cdn.glitch.global/4ae4fbec-cbe7-491c-b8b9-57879c9f0e5d/c41dbb32-a875-44e1-96a9-d8b4a836b0db.image.png?v=1738425771404">
+<img alt="Banner" src="https://cdn.glitch.global/7692d008-7928-4e9e-9e44-279f388f1c43/ff986a2d-5fc9-4278-882c-736f2c43efbf.image.png?v=1738593611187">
 
-## Key Features
-- [x] Clean, modern dark-themed interface
-- [x] Real-time chat with AI
-- [x] Code execution support for Python and JavaScript **(BETA)**
-- [x] Syntax highlighting for code blocks
-- [x] Copy code functionality
+## 🚀 Key Features
+### 💬 Interactive Communication
+- [x] Modern dark interface with smooth animations
+- [x] Real-time AI chat with streaming support
+- [x] Ability to stop response generation at any time
 - [x] Chat history preservation within sessions
-- [x] Mobile-responsive design
-- [x] Real-time API status monitoring
-- [x] New chat creation
-- [x] Message streaming with stop capability
+- [x] One-click new chat creation
 
-## Technical Capabilities
-- [x] Code execution in isolated environment
-- [x] Support for multiple programming languages
-- [x] Security measures for code execution
-- [x] Message history management
-- [x] Markdown rendering
-- [x] Code syntax highlighting
-- [x] Real-time status updates
+### 💻 Code Operations
+- [x] In-chat code execution (Python and JavaScript)
+- [x] Syntax highlighting for all popular programming languages
+- [x] Convenient code copying to clipboard
+- [x] Interactive action buttons for code blocks
+
+### 🔄 Sharing & Collaboration
+- [x] **NEW!** Share chats via links
+- [x] View shared chats with preserved formatting
+- [x] Create copies of shared chats to continue work
+
+### 📱 Responsiveness
+- [x] Full mobile device support
+- [x] Adaptive design for all screen sizes
+- [x] Optimized interface for touch devices
+
+## 🛠 Technical Features
+### 🔒 Security
+- [x] Isolated code execution in secure environment
+- [x] Restrictions on potentially dangerous module imports
+- [x] Timeouts to prevent infinite loops
+- [x] System resource usage control
+
+### 🎨 Formatting & Markup
+- [x] Enhanced Markdown support
+- [x] Syntax highlighting via highlight.js
+- [x] Table and list formatting
+- [x] Nested code block support
+
+### ⚡ Performance
+- [x] Asynchronous request handling
+- [x] Optimized resource loading
+- [x] Static file caching
+- [x] Efficient memory management
+
+### 🔄 Monitoring
+- [x] Real-time API status tracking
+- [x] Operation progress indication
+- [x] Error and system event notifications
+- [x] Critical action logging
 
 ## Installation & Setup
 ### 1. Prerequisites
