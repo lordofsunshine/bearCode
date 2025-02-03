@@ -1034,6 +1034,20 @@ pre code.hljs {
         padding: 1rem;
         font-size: 0.9rem;
     }
+
+    .message-content {
+        max-width: 100%;
+        width: -webkit-fill-available !important;
+        overflow: hidden;
+    }
+
+    .message {
+        max-width: 100%;
+    }
+
+    #user-input {
+        white-space: nowrap;
+    }
 }
 
 /* Popup Animation */
