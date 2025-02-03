@@ -15,6 +15,7 @@ from quart_cors import cors
 import asyncio
 import re
 import hypercorn.asyncio
+import sqlite3
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -130,30 +131,70 @@ CHATS_DIR = 'chat_storage'
 if not os.path.exists(CHATS_DIR):
     os.makedirs(CHATS_DIR)
 
+# Инициализация базы данных
+def init_db():
+    conn = sqlite3.connect('chats.db')
+    c = conn.cursor()
+    c.execute('''
+        CREATE TABLE IF NOT EXISTS chats (
+            chat_id TEXT PRIMARY KEY,
+            messages TEXT,
+            metadata TEXT,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+    ''')
+    conn.commit()
+    conn.close()
+
+# Функции для работы с базой данных
 def save_chat(chat_id, messages, metadata=None):
-    chat_data = {
-        'messages': messages,
-        'metadata': metadata or {
-            'created_at': datetime.now().isoformat(),
-            'title': 'New Chat'
-        }
-    }
-    
-    file_path = os.path.join(CHATS_DIR, f'{chat_id}.json')
-    with open(file_path, 'w', encoding='utf-8') as f:
-        json.dump(chat_data, f, ensure_ascii=False, indent=2)
+    try:
+        conn = sqlite3.connect('chats.db')
+        c = conn.cursor()
+        
+        if metadata is None:
+            metadata = {
+                'created_at': datetime.now().isoformat(),
+                'title': 'New Chat'
+            }
+            
+        c.execute('''
+            INSERT OR REPLACE INTO chats (chat_id, messages, metadata)
+            VALUES (?, ?, ?)
+        ''', (
+            chat_id,
+            json.dumps(messages),
+            json.dumps(metadata)
+        ))
+        
+        conn.commit()
+        conn.close()
+    except Exception as e:
+        logger.error(f"Error saving chat: {e}")
+        raise
 
 def load_chat(chat_id):
     try:
-        file_path = os.path.join(CHATS_DIR, f'{chat_id}.json')
-        if not os.path.exists(file_path):
+        conn = sqlite3.connect('chats.db')
+        c = conn.cursor()
+        
+        c.execute('SELECT messages, metadata FROM chats WHERE chat_id = ?', (chat_id,))
+        result = c.fetchone()
+        conn.close()
+        
+        if result is None:
             return None
             
-        with open(file_path, 'r', encoding='utf-8') as f:
-            return json.load(f)
+        messages, metadata = result
+        return {
+            'messages': json.loads(messages),
+            'metadata': json.loads(metadata)
+        }
     except Exception as e:
-        logger.error(f"Error loading chat {chat_id}: {e}")
+        logger.error(f"Error loading chat: {e}")
         return None
+
+init_db()
 
 @app.route('/')
 async def home():
