@@ -1315,7 +1315,7 @@ textarea:focus {
     gap: 0.5rem;
     padding: 0.3rem 0.5rem;
     z-index: 10;
-    margin: -3.2rem 0 0 0;
+    margin: -1rem 0 0 0;
 }
 
 .code-actions button {
@@ -1457,27 +1457,27 @@ textarea:focus {
     height: 20px;
 }
 
-.toast-success {
+.toast.success {
     border-left: 4px solid #2ea043;
 }
 
-.toast-success .toast-icon {
+.toast.success .toast-icon {
     color: #2ea043;
 }
 
-.toast-error {
+.toast.error {
     border-left: 4px solid #f85149;
 }
 
-.toast-error .toast-icon {
+.toast.error .toast-icon {
     color: #f85149;
 }
 
-.toast-info {
+.toast.info {
     border-left: 4px solid #58a6ff;
 }
 
-.toast-info .toast-icon {
+.toast.info .toast-icon {
     color: #58a6ff;
 }
 

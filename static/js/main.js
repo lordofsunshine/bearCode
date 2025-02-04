@@ -1,4 +1,4 @@
-document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener('DOMContentLoaded', async () => {
     const chatMessages = document.getElementById('chat-messages');
     const userInput = document.getElementById('user-input');
     const sendButton = document.getElementById('send-button');
@@ -9,22 +9,33 @@ document.addEventListener('DOMContentLoaded', () => {
     let controller = null;
 
     marked.setOptions({
-        highlight: function(code, lang) {
-            if (lang && hljs.getLanguage(lang)) {
-                return hljs.highlight(code, { language: lang }).value;
-            }
-            return hljs.highlightAuto(code).value;
-        },
+        highlight: (() => {
+            const cache = new Map(); 
+            return (code, lang) => {
+                const key = `${code}-${lang}`;
+                if (cache.has(key)) return cache.get(key);
+                
+                let result;
+                if (lang && hljs.getLanguage(lang)) {
+                    result = hljs.highlight(code, { language: lang }).value;
+                } else {
+                    result = hljs.highlightAuto(code).value;
+                }
+                
+                cache.set(key, result);
+                return result;
+            };
+        })(),
         breaks: true,
         gfm: true,
         headerIds: false,
-        mangle: false,
-        smartLists: true,
-        xhtml: false
+        mangle: false
     });
 
     async function createNewChat() {
         currentChatId = generateUUID();
+        window.history.pushState({}, '', `/?chat=${currentChatId}`);
+        
         const messagesContainer = document.querySelector('.chat-messages');
         messagesContainer.innerHTML = `
             <div class="welcome-message">
@@ -32,6 +43,20 @@ document.addEventListener('DOMContentLoaded', () => {
                 <p>Hi! I'm a brevoCode.</p>
             </div>
         `;
+
+        try {
+            await fetch('/init-chat', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    chatId: currentChatId
+                })
+            });
+        } catch (error) {
+            console.error('Error initializing chat:', error);
+        }
     }
 
     function filterUnwantedContent(text) {
@@ -212,47 +237,82 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function addMessage(content, isUser = false, sender = isUser ? 'You' : 'brevocode') {
         const messageDiv = document.createElement('div');
+        const messageContent = document.createElement('div');
+        
         messageDiv.className = `message ${isUser ? 'user-message' : 'bot-message'}`;
         messageDiv.setAttribute('data-sender', sender);
-        
-        const messageContent = document.createElement('div');
         messageContent.className = 'message-content';
         
         if (!isUser) {
+            const fragment = document.createDocumentFragment();
             const typingIndicator = document.createElement('div');
             typingIndicator.className = 'typing-indicator';
+            
             for (let i = 0; i < 3; i++) {
                 const dot = document.createElement('div');
                 dot.className = 'typing-dot';
                 typingIndicator.appendChild(dot);
             }
-            messageContent.appendChild(typingIndicator);
             
+            fragment.appendChild(typingIndicator);
+            messageContent.appendChild(fragment);
             messageDiv.appendChild(messageContent);
-            chatMessages.appendChild(messageDiv);
-            chatMessages.scrollTop = chatMessages.scrollHeight;
             
-            setTimeout(() => {
-                messageContent.innerHTML = ''; 
-                if (content.includes('```')) {
-                    messageContent.innerHTML = marked.parse(content);
-                    messageContent.querySelectorAll('pre code').forEach((block) => {
-                        const language = block.className.replace('language-', '');
-                        hljs.highlightBlock(block);
-                        const pre = block.parentElement;
-                        addCodeActions(pre, block, language);
+            requestAnimationFrame(() => {
+                chatMessages.appendChild(messageDiv);
+                chatMessages.scrollTop = chatMessages.scrollHeight;
+                
+                setTimeout(() => {
+                    messageContent.innerHTML = '';
+                    
+                    const formattedContent = content
+                        .replace(/\[([^\]]+)\]/g, '$$$$1$$')
+                        .replace(/[\(\)]/g, '')
+                        .replace(/\\times/g, '<span class="operator">×</span>')
+                        .replace(/\\div/g, '<span class="operator">÷</span>')
+                        .replace(/\\approx/g, '<span class="operator">≈</span>')
+                        .replace(/\\frac{([^}]*)}{([^}]*)}/g, '<span class="number">$1</span><span class="operator">/</span><span class="number">$2</span>')
+                        .replace(/(\d+(?:,\d+)*(?:\.\d+)?)/g, '<span class="number">$1</span>')
+                        .replace(/Step \d+:/g, match => `<div class="calculation-step"><div class="step-label">${match}</div>`)
+                        .replace(/\$\$1\$/g, '')
+                        .replace(/\$\$\s*1\s*\$\$/g, '')
+                        .replace(/\$\$\s*\$\$/g, '');
+                    
+                    if (content.includes('```') || content.includes('$')) {
+                        messageContent.innerHTML = marked.parse(formattedContent);
+                        
+                        if (content.includes('$')) {
+                            MathJax.typesetPromise([messageContent]);
+                        }
+                        
+                        const codeBlocks = messageContent.querySelectorAll('pre code');
+                        if (codeBlocks.length) {
+                            requestAnimationFrame(() => {
+                                codeBlocks.forEach((block) => {
+                                    const language = block.className.replace('language-', '');
+                                    hljs.highlightBlock(block);
+                                    const pre = block.parentElement;
+                                    addCodeActions(pre, block, language);
+                                });
+                            });
+                        }
+                    } else {
+                        messageContent.innerHTML = marked.parse(formattedContent);
+                    }
+                    
+                    messageContent.style.opacity = '0';
+                    requestAnimationFrame(() => {
+                        messageContent.style.animation = 'fadeIn 0.5s ease forwards';
                     });
-                } else {
-                    messageContent.innerHTML = marked.parse(content);
-                }
-                messageContent.style.opacity = '0';
-                messageContent.style.animation = 'fadeIn 0.5s ease forwards';
-            }, 1500); 
+                }, 1500);
+            });
         } else {
             messageContent.innerHTML = marked.parse(content);
             messageDiv.appendChild(messageContent);
-            chatMessages.appendChild(messageDiv);
-            chatMessages.scrollTop = chatMessages.scrollHeight;
+            requestAnimationFrame(() => {
+                chatMessages.appendChild(messageDiv);
+                chatMessages.scrollTop = chatMessages.scrollHeight;
+            });
         }
     }
 
@@ -288,6 +348,35 @@ document.addEventListener('DOMContentLoaded', () => {
             this.queue = [];
             this.isProcessing = false;
         }
+        
+        getSvgIcon(type) {
+            switch (type) {
+                case 'success':
+                    return `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M20 6L9 17l-5-5"/>
+                    </svg>`;
+                case 'error':
+                    return `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <circle cx="12" cy="12" r="10"/>
+                        <line x1="15" y1="9" x2="9" y2="15"/>
+                        <line x1="9" y1="9" x2="15" y2="15"/>
+                    </svg>`;
+                case 'info':
+                    return `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <circle cx="12" cy="12" r="10"/>
+                        <line x1="12" y1="16" x2="12" y2="12"/>
+                        <line x1="12" y1="8" x2="12" y2="8"/>
+                    </svg>`;
+                case 'warning':
+                    return `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
+                        <line x1="12" y1="9" x2="12" y2="13"/>
+                        <line x1="12" y1="17" x2="12" y2="17"/>
+                    </svg>`;
+                default:
+                    return '';
+            }
+        }
 
         async show(message, type = 'info', duration = 3000) {
             this.queue.push({ message, type, duration });
@@ -307,26 +396,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
             const toast = document.createElement('div');
             toast.className = `toast toast-${type}`;
-
-            const icons = {
-                success: `<svg class="toast-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <path d="M20 6L9 17l-5-5"/>
-                         </svg>`,
-                error: `<svg class="toast-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <circle cx="12" cy="12" r="10"/>
-                            <path d="M15 9l-6 6M9 9l6 6"/>
-                        </svg>`,
-                info: `<svg class="toast-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <circle cx="12" cy="12" r="10"/>
-                        <path d="M12 16v-4M12 8h.01"/>
-                       </svg>`,
-                warning: `<svg class="toast-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <path d="M12 9v4m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 18c-.77 1.333.192 3 1.732 3z"/>
-                       </svg>`
-            };
-
+            
             toast.innerHTML = `
-                ${icons[type]}
+                ${this.getSvgIcon(type)}
                 <div class="toast-content">${message}</div>
                 <button class="toast-close">
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -360,9 +432,32 @@ document.addEventListener('DOMContentLoaded', () => {
         constructor() {
             this.files = new Map();
             this.maxFiles = 5;
-            this.maxFileSize = 100000; 
+            this.maxFileSize = 100000;
             this.maxTotalSize = 500000;
             this.expirationTime = 30 * 60 * 1000;
+            
+            this.debouncedCleanup = this.debounce(this.cleanup.bind(this), 1000);
+        }
+        
+        debounce(func, wait) {
+            let timeout;
+            return function executedFunction(...args) {
+                const later = () => {
+                    clearTimeout(timeout);
+                    func(...args);
+                };
+                clearTimeout(timeout);
+                timeout = setTimeout(later, wait);
+            };
+        }
+        
+        cleanup() {
+            const now = Date.now();
+            for (const [fileName, data] of this.files.entries()) {
+                if (now - data.timestamp > this.expirationTime) {
+                    this.files.delete(fileName);
+                }
+            }
         }
 
         getTotalSize() {
@@ -635,41 +730,27 @@ document.addEventListener('DOMContentLoaded', () => {
         const message = userInput.value.trim();
         if (!message) return;
 
-        if (!isConnected) {
-            pendingMessage = message;
-            toast.show('Message will be sent when connection is restored.', 'info');
-            return;
-        }
-
-        setLoading(true);
-        
-        const messagesContainer = document.querySelector('.chat-messages');
-        const isFirstMessage = !currentChatId;
-
-        if (isFirstMessage) {
-            currentChatId = generateUUID();
-        }
-
-        addMessage(message, true);
-        userInput.value = '';
-        userInput.style.height = 'auto';
-
-        if (isFirstMessage) {
-            await generateChatTitle(message);
-        }
-
-        stopButton.classList.add('visible');
-        controller = new AbortController();
-
         try {
-            const snippets = Array.from(document.querySelectorAll('.especially_relevant_code_snippet'))
-                .map(snippet => ({
-                    path: snippet.getAttribute('data-path'),
-                    language: snippet.getAttribute('data-language'),
-                    content: snippet.textContent
-                }));
+            setLoading(true);
+            
+            const messagesContainer = document.querySelector('.chat-messages');
+            const isFirstMessage = !currentChatId;
 
-            console.log('Sending files:', snippets);
+            if (isFirstMessage) {
+                currentChatId = generateUUID();
+                window.history.pushState({}, '', `/?chat=${currentChatId}`);
+            }
+
+            addMessage(message, true);
+            userInput.value = '';
+            userInput.style.height = 'auto';
+
+            if (isFirstMessage) {
+                await generateChatTitle(message);
+            }
+
+            stopButton.classList.add('visible');
+            controller = new AbortController();
 
             const response = await fetch('/chat', {
                 method: 'POST',
@@ -679,9 +760,15 @@ document.addEventListener('DOMContentLoaded', () => {
                 body: JSON.stringify({
                     message: message,
                     chatId: currentChatId,
-                    especially_relevant_code_snippet: snippets
+                    especially_relevant_code_snippet: Array.from(document.querySelectorAll('.especially_relevant_code_snippet'))
+                        .map(snippet => ({
+                            path: snippet.getAttribute('data-path'),
+                            language: snippet.getAttribute('data-language'),
+                            content: snippet.textContent.trim()
+                        }))
                 }),
-                signal: controller?.signal
+                signal: controller?.signal,
+                timeout: 30000
             });
 
             if (!response.ok) {
@@ -694,12 +781,31 @@ document.addEventListener('DOMContentLoaded', () => {
                 throw new Error(data.error);
             }
 
-            addMessage(data.response, false);
+            if (!data.response) {
+                throw new Error('Empty response from server');
+            }
+
+            addMessage(filterUnwantedContent(data.response), false);
             updateApiStatus(true);
 
         } catch (error) {
+            if (error.name === 'AbortError') {
+                toast.show('Response generation stopped', 'info');
+                return;
+            }
+
             console.error('Error sending message:', error);
+            
+            if (!error.retryCount || error.retryCount < 3) {
+                const retryCount = (error.retryCount || 0) + 1;
+                toast.show(`Connection error, retrying... (${retryCount}/3)`, 'warning');
+                await new Promise(resolve => setTimeout(resolve, 1000 * retryCount));
+                error.retryCount = retryCount;
+                return sendMessage();
+            }
+
             toast.show('Failed to send message: ' + error.message, 'error');
+            updateApiStatus(false);
         } finally {
             stopButton.classList.remove('visible');
             controller = null;
@@ -733,6 +839,45 @@ document.addEventListener('DOMContentLoaded', () => {
 
     setInterval(checkConnection, CONNECTION_CHECK_INTERVAL);
     checkConnection(); 
+
+    async function loadChat(chatId) {
+        try {
+            const response = await fetch(`/api/chat/${chatId}`);
+            if (!response.ok) {
+                throw new Error('Failed to load chat');
+            }
+            
+            const chatData = await response.json();
+            if (chatData.messages && chatData.messages.length > 0) {
+                currentChatId = chatId;
+                const messagesContainer = document.querySelector('.chat-messages');
+                messagesContainer.innerHTML = `
+                    <div class="welcome-message">
+                        <h2 id="chat-title">${chatData.metadata.title || 'New Chat'}</h2>
+                    </div>
+                `;
+                
+                chatData.messages.forEach(msg => {
+                    addMessage(msg.content, msg.role === 'user');
+                });
+                
+                return true;
+            }
+        } catch (error) {
+            console.error('Error loading chat:', error);
+            return false;
+        }
+        return false;
+    }
+
+    const urlParams = new URLSearchParams(window.location.search);
+    const chatId = urlParams.get('chat');
+    if (chatId) {
+        const loaded = await loadChat(chatId);
+        if (!loaded) {
+            await createNewChat();
+        }
+    }
 
     newChatButton.addEventListener('click', createNewChat);
     
@@ -769,6 +914,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function addFileUploadUI() {
         const inputContainer = document.querySelector('.chat-input-container');
+        
+        if (inputContainer.querySelector('.file-upload-button')) {
+            return;
+        }
         
         const fileUploadButton = document.createElement('button');
         fileUploadButton.className = 'file-upload-button';
@@ -812,17 +961,34 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     addFileUploadUI();
-    checkConnection(); 
+    checkConnection();
 
     const shareButton = document.getElementById('share-chat-button');
     if (shareButton) {
         shareButton.addEventListener('click', async () => {
+            const messages = document.querySelectorAll('.message');
+            if (messages.length === 0) {
+                new ToastNotification().show('You cant share an empty chat', 'error');
+                return;
+            }
+
             try {
-                if (!currentChatId) {
-                    toast.show('Start a chat before sharing', 'warning');
-                    return;
+                const response = await fetch('/share-chat', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        chatId: currentChatId
+                    })
+                });
+
+                if (!response.ok) {
+                    const errorData = await response.json();
+                    throw new Error(errorData.error || 'Failed to generate share link');
                 }
 
+                const data = await response.json();
                 const overlay = document.createElement('div');
                 overlay.className = 'share-overlay';
                 
@@ -848,7 +1014,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 document.body.appendChild(overlay);
                 
                 const input = popup.querySelector('.share-url-input');
-                await generateShareLink(input);
+                input.value = data.share_url;
                 
                 const copyButton = popup.querySelector('.copy-link-button');
                 copyButton.addEventListener('click', () => {
@@ -867,36 +1033,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 toast.show(error.message || 'Failed to share chat', 'error');
             }
         });
-    }
-
-    async function generateShareLink(inputElement) {
-        try {
-            if (!currentChatId) {
-                throw new Error('No active chat to share');
-            }
-
-            const response = await fetch('/share-chat', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({
-                    chatId: currentChatId
-                })
-            });
-
-            if (!response.ok) {
-                const errorData = await response.json();
-                throw new Error(errorData.error || 'Failed to generate share link');
-            }
-
-            const data = await response.json();
-            inputElement.value = data.share_url;
-        } catch (error) {
-            console.error('Share link generation error:', error);
-            toast.show(error.message || 'Failed to generate share link', 'error');
-            throw error;
-        }
     }
 
     function clearFiles() {

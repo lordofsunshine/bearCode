@@ -8,13 +8,14 @@ import platform
 import sys
 from threading import Timer
 import uuid
-from datetime import datetime
+from datetime import datetime, UTC
 import json
 from quart import Quart, render_template, request, jsonify, send_from_directory, abort
 from quart_cors import cors
 import asyncio
 import re
 import hypercorn.asyncio
+from database import db
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -22,12 +23,6 @@ logger = logging.getLogger(__name__)
 app = Quart(__name__)
 app = cors(app)
 client = Client()
-
-shared_chats = {}
-chat_storage = {
-    'messages': {},  # Chat messages
-    'metadata': {}   # Chat metadata (creation time, access, etc.)
-}
 
 MAX_MESSAGE_LENGTH = 4000
 EXECUTION_TIMEOUT = 10.0
@@ -147,8 +142,16 @@ async def chat():
         logger.info(f"Received message: {message}")
         logger.info(f"Received snippets: {especially_relevant_code_snippet}")
         
-        if chat_id not in chat_storage['messages']:
-            chat_storage['messages'][chat_id] = []
+        chat_data = db.get_chat(chat_id)
+        if not chat_data:
+            chat_data = {
+                "messages": [],
+                "metadata": {
+                    "created_at": datetime.now(UTC),
+                    "title": "New Chat"
+                }
+            }
+            db.create_chat(chat_id)
 
         context = []
         context.append({"role": "system", "content": "You are a helpful AI assistant focused on programming and code analysis."})
@@ -160,7 +163,7 @@ async def chat():
             context.append({"role": "user", "content": files_context})
         
         context.append({"role": "user", "content": message})
-        chat_storage['messages'][chat_id].append({"role": "user", "content": message})
+        chat_data["messages"].append({"role": "user", "content": message})
 
         try:
             loop = asyncio.get_event_loop()
@@ -175,9 +178,10 @@ async def chat():
             )
             
             response_text = response.choices[0].message.content
-            response_text = filter_unwanted_content(response_text) 
+            response_text = filter_unwanted_content(response_text)
             
-            chat_storage['messages'][chat_id].append({"role": "assistant", "content": response_text})
+            chat_data["messages"].append({"role": "assistant", "content": response_text})
+            db.update_chat(chat_id, chat_data["messages"], chat_data["metadata"])
             
             logger.info(f"API response: {response_text[:100]}...")
             
@@ -350,6 +354,24 @@ def run_with_timeout(process: subprocess.Popen) -> str:
 async def health_check():
     return jsonify({'status': 'ok'})
 
+@app.route('/init-chat', methods=['POST'])
+async def init_chat():
+    try:
+        data = await request.get_json()
+        chat_id = data.get('chatId')
+        
+        if not chat_id:
+            return jsonify({'error': 'Chat ID is required'}), 400
+
+        if db.create_chat(chat_id):
+            return jsonify({'status': 'success'})
+        return jsonify({'error': 'Failed to create chat'}), 500
+
+    except Exception as e:
+        logger.error(f"Chat initialization error: {str(e)}")
+        return jsonify({'error': str(e)}), 500
+
+
 @app.route('/share-chat', methods=['POST'])
 async def share_chat():
     try:
@@ -359,32 +381,29 @@ async def share_chat():
         if not chat_id:
             return jsonify({'error': 'Chat ID is required'}), 400
 
-        if chat_id not in chat_storage['messages']:
-            return jsonify({'error': 'Chat not found'}), 404
+        chat_data = db.get_chat(chat_id)
+        if not chat_data or not chat_data.get('messages'):
+            return jsonify({'error': 'Cannot share empty chat'}), 400
 
-        shared_chats[chat_id] = {
-            'messages': chat_storage['messages'].get(chat_id, []),
-            'metadata': {
-                'created_at': datetime.now().isoformat(),
-                'title': chat_storage.get('metadata', {}).get(chat_id, {}).get('title', 'Shared Chat')
-            }
-        }
+        if not db.share_chat(chat_id):
+            return jsonify({'error': 'Failed to share chat'}), 500
 
         share_url = f"{request.host_url}shared/{chat_id}"
         return jsonify({
             'share_id': chat_id,
             'share_url': share_url
         })
+
     except Exception as e:
-        logger.error(f"Share chat error: {str(e)}") 
+        logger.error(f"Share chat error: {str(e)}")
         return jsonify({'error': str(e)}), 500
 
 @app.route('/shared/<chat_id>')
 async def view_shared_chat(chat_id):
-    if chat_id not in shared_chats:
+    shared_chat = db.get_shared_chat(chat_id)
+    if not shared_chat:
         abort(404)
     
-    shared_chat = shared_chats[chat_id]
     return await render_template(
         'shared_chat.html',
         chat=shared_chat,
@@ -400,10 +419,22 @@ async def serve_file(filename):
 
 @app.route('/api/shared-chat/<chat_id>')
 async def get_shared_chat(chat_id):
-    if chat_id not in shared_chats:
+    shared_chat = db.get_shared_chat(chat_id)
+    if not shared_chat:
         abort(404)
     
-    return jsonify(shared_chats[chat_id])
+    return jsonify(shared_chat)
+
+@app.route('/api/chat/<chat_id>')
+async def get_chat(chat_id):
+    try:
+        chat_data = db.get_chat(chat_id)
+        if not chat_data:
+            return jsonify({'error': 'Chat not found'}), 404
+        return jsonify(chat_data)
+    except Exception as e:
+        logger.error(f"Error getting chat: {str(e)}")
+        return jsonify({'error': 'Internal server error'}), 500
 
 @app.template_filter('format_date')
 def format_date(value):
