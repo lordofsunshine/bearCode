@@ -36,17 +36,31 @@ class ChatRequest(BaseModel):
 class ChatResponse(BaseModel):
     response: str
     
-chat_history: Dict[str, List[Message]] = {
-    "default": [
-        Message(
-            role="assistant",
-            content="Hello! I'm bearCode, your AI coding assistant. How can I help you today?",
-            timestamp=datetime.now()
-        )
-    ]
-}
+chat_history: Dict[str, Dict[str, List[Message]]] = {}
 
 print(f"{Fore.GREEN}✓ {Fore.CYAN}Chat history initialized{Style.RESET_ALL}")
+
+def get_user_identifier():
+    """Get a unique identifier for the current user based on IP address"""
+    return request.remote_addr or "unknown"
+
+def get_default_message():
+    """Return the default welcome message"""
+    return Message(
+        role="assistant",
+        content="Hello! I'm bearCode, your AI coding assistant. How can I help you today?",
+        timestamp=datetime.now()
+    )
+
+def ensure_user_chat_exists(user_id, chat_id="default"):
+    """Ensure the user and chat exist in the history"""
+    if user_id not in chat_history:
+        chat_history[user_id] = {}
+    
+    if chat_id not in chat_history[user_id]:
+        chat_history[user_id][chat_id] = [get_default_message()]
+    
+    return chat_history[user_id][chat_id]
 
 @app.route("/")
 async def index():
@@ -67,10 +81,10 @@ async def chat():
         if not user_message:
             return jsonify({"error": "Message cannot be empty"}), 400
         
-        if chat_id not in chat_history:
-            chat_history[chat_id] = []
+        user_id = get_user_identifier()
+        user_chat = ensure_user_chat_exists(user_id, chat_id)
         
-        chat_history[chat_id].append(
+        user_chat.append(
             Message(
                 role="user",
                 content=user_message,
@@ -79,7 +93,7 @@ async def chat():
         )
         
         history_for_ai = []
-        for msg in chat_history[chat_id]:
+        for msg in user_chat:
             history_for_ai.append({
                 "role": msg.role,
                 "content": msg.content
@@ -88,7 +102,7 @@ async def chat():
         try:
             response = await generate_ai_response(user_message, history_for_ai, model=model)
             
-            chat_history[chat_id].append(
+            user_chat.append(
                 Message(
                     role="assistant",
                     content=response,
@@ -111,9 +125,12 @@ async def chat():
 @app.route("/api/history", methods=["GET"])
 async def get_history():
     chat_id = request.args.get("chat_id", "default")
+    user_id = get_user_identifier()
     
-    if chat_id not in chat_history:
-        return jsonify({"error": "Chat history not found"}), 404
+    if user_id not in chat_history or chat_id not in chat_history[user_id]:
+        ensure_user_chat_exists(user_id, chat_id)
+    
+    user_chat = chat_history[user_id][chat_id]
     
     history = [
         {
@@ -121,7 +138,7 @@ async def get_history():
             "content": msg.content,
             "timestamp": msg.timestamp.isoformat() if msg.timestamp else None
         }
-        for msg in chat_history[chat_id]
+        for msg in user_chat
     ]
     
     return jsonify({"history": history})
@@ -131,14 +148,12 @@ async def clear_chat():
     try:
         data = await request.get_json()
         chat_id = data.get("chat_id", "default")
+        user_id = get_user_identifier()
         
-        chat_history[chat_id] = [
-            Message(
-                role="assistant",
-                content="Hello! I'm bearCode, your AI coding assistant. How can I help you today?",
-                timestamp=datetime.now()
-            )
-        ]
+        if user_id in chat_history and chat_id in chat_history[user_id]:
+            chat_history[user_id][chat_id] = [get_default_message()]
+        else:
+            ensure_user_chat_exists(user_id, chat_id)
         
         return jsonify({"status": "success"})
     
@@ -150,14 +165,9 @@ async def clear_chat():
 async def new_chat():
     try:
         new_chat_id = f"chat_{datetime.now().timestamp()}"
+        user_id = get_user_identifier()
         
-        chat_history[new_chat_id] = [
-            Message(
-                role="assistant",
-                content="Hello! I'm bearCode, your AI coding assistant. How can I help you today?",
-                timestamp=datetime.now()
-            )
-        ]
+        ensure_user_chat_exists(user_id, new_chat_id)
         
         return jsonify({
             "status": "success",
@@ -179,10 +189,10 @@ async def generate_image():
         if not prompt:
             return jsonify({"error": "Prompt cannot be empty"}), 400
         
-        if chat_id not in chat_history:
-            chat_history[chat_id] = []
+        user_id = get_user_identifier()
+        user_chat = ensure_user_chat_exists(user_id, chat_id)
         
-        chat_history[chat_id].append(
+        user_chat.append(
             Message(
                 role="user",
                 content=prompt,
@@ -205,7 +215,7 @@ async def generate_image():
             
             response_content = f"I've generated an image based on your prompt: \"{prompt}\""
             
-            chat_history[chat_id].append(
+            user_chat.append(
                 Message(
                     role="assistant",
                     content=response_content,
@@ -226,7 +236,7 @@ async def generate_image():
             error_message = f"Failed to generate image: {str(e)}"
             print(f"{Fore.RED}✗ {error_message}{Style.RESET_ALL}")
             
-            chat_history[chat_id].append(
+            user_chat.append(
                 Message(
                     role="assistant",
                     content=f"I'm sorry, I couldn't generate that image. Error: {str(e)}",
