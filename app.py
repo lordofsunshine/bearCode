@@ -41,11 +41,9 @@ chat_history: Dict[str, Dict[str, List[Message]]] = {}
 print(f"{Fore.GREEN}✓ {Fore.CYAN}Chat history initialized{Style.RESET_ALL}")
 
 def get_user_identifier():
-    """Get a unique identifier for the current user based on IP address"""
     return request.remote_addr or "unknown"
 
 def get_default_message():
-    """Return the default welcome message"""
     return Message(
         role="assistant",
         content="Hello! I'm bearCode, your AI coding assistant. How can I help you today?",
@@ -53,7 +51,6 @@ def get_default_message():
     )
 
 def ensure_user_chat_exists(user_id, chat_id="default"):
-    """Ensure the user and chat exist in the history"""
     if user_id not in chat_history:
         chat_history[user_id] = {}
     
