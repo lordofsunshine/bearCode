@@ -1,0 +1,120 @@
+body {
+    height: auto;
+}
+
+.privacy-container {
+    max-width: 800px;
+    margin: 0 auto;
+    padding: 40px 20px;
+}
+
+.privacy-header {
+    display: flex;
+    align-items: center;
+    margin-bottom: 40px;
+    gap: 16px;
+}
+
+.privacy-content {
+    background-color: var(--color-surface);
+    border-radius: var(--radius-lg);
+    padding: 40px;
+    box-shadow: var(--shadow-neo-theme);
+}
+
+.privacy-header h1 {
+    font-family: var(--font-heading);
+    font-size: 32px;
+    background-image: var(--color-primary-gradient);
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+}
+
+.privacy-content h2 {
+    font-family: var(--font-heading);
+    font-size: 24px;
+    color: var(--color-text-primary);
+    margin-top: 30px;
+    margin-bottom: 15px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid var(--color-border-light);
+}
+
+.privacy-content h2:first-child {
+    margin-top: 0;
+}
+
+.privacy-content p {
+    font-family: var(--font-body);
+    color: var(--color-text-primary);
+    line-height: 1.7;
+    margin-bottom: 20px;
+}
+
+.privacy-content ul {
+    margin-bottom: 20px;
+    padding-left: 20px;
+}
+
+.privacy-content li {
+    font-family: var(--font-body);
+    color: var(--color-text-primary);
+    line-height: 1.7;
+    margin-bottom: 10px;
+}
+
+.privacy-content a {
+    color: var(--color-primary);
+    text-decoration: none;
+    border-bottom: 1px solid transparent;
+    transition: border-color 0.3s ease;
+}
+
+.privacy-content a:hover {
+    border-bottom-color: var(--color-primary);
+}
+
+.back-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    font-family: var(--font-body);
+    font-weight: 500;
+    color: var(--color-primary);
+    text-decoration: none;
+    margin-top: 30px;
+    padding: 10px 16px;
+    background-color: var(--color-primary-very-light);
+    border-radius: var(--radius-md);
+    transition: var(--transition);
+}
+
+.back-link:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-sm);
+}
+
+.dark-theme .back-link {
+    background-color: rgba(139, 109, 90, 0.2);
+}
+
+@media (max-width: 768px) {
+    .privacy-content {
+        padding: 25px;
+    }
+    
+    .privacy-header h1 {
+        font-size: 28px;
+    }
+}
+
+@media (max-width: 480px) {
+    .privacy-content {
+        padding: 20px;
+    }
+    
+    .privacy-header h1 {
+        font-size: 24px;
+    }
+}
