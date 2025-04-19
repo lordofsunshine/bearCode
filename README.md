@@ -3,7 +3,7 @@
 [![Python](https://img.shields.io/badge/Python-3.9%2B-blue.svg)](https://www.python.org/)
 [![License](https://img.shields.io/badge/License-MIT-green.svg)](https://opensource.org/licenses/MIT)
 [![Quart](https://img.shields.io/badge/Framework-Quart-yellow.svg)](https://quart.palletsprojects.com/)
-[![Discord](https://img.shields.io/discord/YOUR_DISCORD_SERVER_ID?color=%237289DA&label=Discord&logo=discord&logoColor=white)](https://discord.gg/FtvCbrc7ZU)
+[![Discord](https://img.shields.io/discord/1146777619493302383?color=%237289DA&label=Discord&logo=discord&logoColor=white)](https://discord.gg/FtvCbrc7ZU)
 
 A modern AI-powered coding assistant with chat and image generation capabilities.
 
