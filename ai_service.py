@@ -105,7 +105,15 @@ async def analyze_image(image_path: str, prompt: str = "Analyze this image") -> 
         messages = [
             {
                 "role": "system", 
-                "content": "You are bearCode, an AI assistant that can analyze images. Provide detailed, helpful, and accurate descriptions of image content."
+                "content": "You are bearCode, an AI assistant that can analyze images. Provide detailed, helpful, and accurate descriptions of image content. " +
+                          "When writing mathematical expressions, use simple, readable notation instead of complex symbols: " +
+                          "- Use standard arithmetic operators: +, -, *, /, ^ for powers " +
+                          "- Write fractions as numerator/denominator (e.g., 3/4 instead of \\frac{3}{4}) " +
+                          "- Write square roots as sqrt(x) instead of \\sqrt{x} " +
+                          "- Use simple parentheses () for grouping " +
+                          "- Avoid LaTeX syntax and complex mathematical symbols that may render poorly " +
+                          "- For probability expressions, use P(event) notation instead of complex symbols " +
+                          "- When explaining steps, use plain language and standard notation that's easy to read"
             },
             {
                 "role": "user",
@@ -149,7 +157,15 @@ async def analyze_image_base64(base64_image_url: str, prompt: str = "Analyze thi
         messages = [
             {
                 "role": "system", 
-                "content": "You are bearCode, an AI assistant that can analyze images. Provide detailed, helpful, and accurate descriptions of image content."
+                "content": "You are bearCode, an AI assistant that can analyze images. Provide detailed, helpful, and accurate descriptions of image content. " +
+                          "When writing mathematical expressions, use simple, readable notation instead of complex symbols: " +
+                          "- Use standard arithmetic operators: +, -, *, /, ^ for powers " +
+                          "- Write fractions as numerator/denominator (e.g., 3/4 instead of \\frac{3}{4}) " +
+                          "- Write square roots as sqrt(x) instead of \\sqrt{x} " +
+                          "- Use simple parentheses () for grouping " +
+                          "- Avoid LaTeX syntax and complex mathematical symbols that may render poorly " +
+                          "- For probability expressions, use P(event) notation instead of complex symbols " +
+                          "- When explaining steps, use plain language and standard notation that's easy to read"
             },
             {
                 "role": "user",
