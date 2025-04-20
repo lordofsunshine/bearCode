@@ -16,6 +16,7 @@ document.addEventListener('DOMContentLoaded', function() {
     let isProcessing = false;
     let currentModel = localStorage.getItem('bearcode-model') || 'gpt-4o-mini';
     let abortController = null;
+    let userSessionId = getUserSessionId();
     
     const API = {
         CHAT: '/api/chat',
@@ -25,12 +26,23 @@ document.addEventListener('DOMContentLoaded', function() {
         GENERATE_IMAGE: '/api/generate-image'
     };
     
+    function getUserSessionId() {
+        let sessionId = localStorage.getItem('bearcode-session-id');
+        
+        if (!sessionId) {
+            sessionId = 'session_' + Date.now() + '_' + Math.random().toString(36).substring(2, 15);
+            localStorage.setItem('bearcode-session-id', sessionId);
+        }
+        
+        return sessionId;
+    }
+    
     function openSettings() {
         chatMessages.classList.add('hidden');
         settingsPanel.classList.remove('hidden');
         chatInput.classList.add('disabled');
         
-        const currentTheme = localStorage.getItem('bearcode-theme') || 'system';
+        const currentTheme = localStorage.getItem('bearcode-theme') || 'light';
         themeOptions.forEach(option => {
             if (option.dataset.theme === currentTheme) {
                 option.classList.add('active');
@@ -159,7 +171,7 @@ document.addEventListener('DOMContentLoaded', function() {
     }
     
     function initTheme() {
-        const savedTheme = localStorage.getItem('bearcode-theme') || 'system';
+        const savedTheme = localStorage.getItem('bearcode-theme') || 'light';
         
         if (savedTheme === 'dark') {
             document.body.classList.add('dark-theme');
@@ -262,7 +274,8 @@ document.addEventListener('DOMContentLoaded', function() {
             const response = await fetch('/api/generate-image', {
                 method: 'POST',
                 headers: {
-                    'Content-Type': 'application/json'
+                    'Content-Type': 'application/json',
+                    'X-User-Session-ID': userSessionId
                 },
                 body: JSON.stringify({
                     chat_id: currentChatId,
@@ -309,7 +322,11 @@ document.addEventListener('DOMContentLoaded', function() {
     
     async function initChat() {
         try {
-            const response = await fetch(`${API.HISTORY}?chat_id=${currentChatId}`);
+            const response = await fetch(`${API.HISTORY}?chat_id=${currentChatId}`, {
+                headers: {
+                    'X-User-Session-ID': userSessionId
+                }
+            });
             const data = await response.json();
             
             if (data.history) {
@@ -445,7 +462,8 @@ document.addEventListener('DOMContentLoaded', function() {
                     const response = await fetch(API.CHAT, {
                         method: 'POST',
                         headers: {
-                            'Content-Type': 'application/json'
+                            'Content-Type': 'application/json',
+                            'X-User-Session-ID': userSessionId
                         },
                         body: JSON.stringify({
                             chat_id: currentChatId,
@@ -499,7 +517,8 @@ document.addEventListener('DOMContentLoaded', function() {
             const response = await fetch(API.CLEAR, {
                 method: 'POST',
                 headers: {
-                    'Content-Type': 'application/json'
+                    'Content-Type': 'application/json',
+                    'X-User-Session-ID': userSessionId
                 },
                 body: JSON.stringify({
                     chat_id: currentChatId
@@ -523,7 +542,8 @@ document.addEventListener('DOMContentLoaded', function() {
             const response = await fetch(API.NEW, {
                 method: 'POST',
                 headers: {
-                    'Content-Type': 'application/json'
+                    'Content-Type': 'application/json',
+                    'X-User-Session-ID': userSessionId
                 }
             });
             

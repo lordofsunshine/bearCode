@@ -41,6 +41,10 @@ chat_history: Dict[str, Dict[str, List[Message]]] = {}
 print(f"{Fore.GREEN}✓ {Fore.CYAN}Chat history initialized{Style.RESET_ALL}")
 
 def get_user_identifier():
+    session_id = request.headers.get('X-User-Session-ID')
+    if session_id:
+        return session_id
+    
     return request.remote_addr or "unknown"
 
 def get_default_message():
@@ -266,7 +270,6 @@ if __name__ == "__main__":
     
     if os.environ.get("ENVIRONMENT") != "production":
         config.use_reloader = True
-        config.debug = True
     
     environment = os.environ.get("ENVIRONMENT", "development")
     print(f"{Fore.GREEN}✓ {Fore.CYAN}Configuration loaded - Environment: {Fore.YELLOW}{environment}{Style.RESET_ALL}")

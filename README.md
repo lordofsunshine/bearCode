@@ -3,9 +3,18 @@
 [![Python](https://img.shields.io/badge/Python-3.9%2B-blue.svg)](https://www.python.org/)
 [![License](https://img.shields.io/badge/License-MIT-green.svg)](https://opensource.org/licenses/MIT)
 [![Quart](https://img.shields.io/badge/Framework-Quart-yellow.svg)](https://quart.palletsprojects.com/)
-[![Discord](https://img.shields.io/discord/1146777619493302383?color=%237289DA&label=Discord&logo=discord&logoColor=white)](https://discord.gg/FtvCbrc7ZU)
+[![Discord](https://img.shields.io/discord/YOUR_DISCORD_SERVER_ID?color=%237289DA&label=Discord&logo=discord&logoColor=white)](https://discord.gg/FtvCbrc7ZU)
 
 A modern AI-powered coding assistant with chat and image generation capabilities.
+
+## Major Update
+- https://github.com/lordofsunshine/bearCode
+
+1. The site has been deployed to the domain **https://bearcode.lol** with improved hosting infrastructure.
+2. AI response quality has been significantly enhanced with better prompt engineering and bug fixes. Full markdown support added.
+3. Enhanced privacy: Our server only stores individual chat histories identified by unique session IDs (based on client info). You can clear your history anytime. All UI preferences and settings are stored locally in your browser.
+4. Image generation capability with the Flux model. Access via Settings → AI Model → Flux. All preferences automatically save to localStorage.
+5. Complete UI redesign with light, dark and system theme support.
 
 ## Features
 
