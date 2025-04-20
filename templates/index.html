@@ -17,6 +17,7 @@
     <meta name="twitter:title" content="bearCode AI Assistant">
     <meta name="twitter:description" content="Your intelligent AI companion for coding and programming tasks">
     <meta name="twitter:image" content="/static/images/favicon.svg">
+
     <link rel="icon" href="/static/images/favicon.svg" type="image/svg+xml">
     <link rel="apple-touch-icon" href="/static/images/favicon.svg">
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -52,7 +53,6 @@
             </div>
             
             <div class="chat-messages">
-                <!-- Chat messages will be loaded from API -->
                 <div id="typing-indicator" class="typing-indicator hidden">
                     <div class="message-avatar">
                         <svg class="bear-icon" viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg">
@@ -156,6 +156,12 @@
             </div>
             
             <div class="chat-input">
+                <div class="image-upload-wrapper">
+                    <input type="file" id="image-upload" class="image-upload" accept="image/*">
+                    <button class="image-upload-button" aria-label="Upload image">
+                        <i class="fa-solid fa-image"></i>
+                    </button>
+                </div>
                 <textarea placeholder="Ask bearCode something..."></textarea>
                 <button class="send-button">
                     <i class="fa-solid fa-rocket"></i>
@@ -175,7 +181,5 @@
             </div>
         </div>
     </div>
-    
-<script src="static/script.js"></script>
 </body>
 </html> 

@@ -11,19 +11,23 @@ document.addEventListener('DOMContentLoaded', function() {
     const closeSettingsBtn = document.querySelector('.btn-close-settings');
     const themeOptions = document.querySelectorAll('.theme-option');
     const modelOptions = document.querySelectorAll('.model-option');
+    const imageUploadInput = document.getElementById('image-upload');
+    const imageUploadButton = document.querySelector('.image-upload-button');
     
     let currentChatId = "default";
     let isProcessing = false;
     let currentModel = localStorage.getItem('bearcode-model') || 'gpt-4o-mini';
     let abortController = null;
     let userSessionId = getUserSessionId();
+    let uploadedImage = null;
     
     const API = {
         CHAT: '/api/chat',
         HISTORY: '/api/history',
         CLEAR: '/api/clear',
         NEW: '/api/new',
-        GENERATE_IMAGE: '/api/generate-image'
+        GENERATE_IMAGE: '/api/generate-image',
+        ANALYZE_IMAGE: '/api/analyze-image'
     };
     
     function getUserSessionId() {
@@ -140,8 +144,10 @@ document.addEventListener('DOMContentLoaded', function() {
         
         if (model === 'flux') {
             textarea.placeholder = "Describe the image you want to generate...";
+            document.body.classList.add('flux-model');
         } else {
             textarea.placeholder = "Ask bearCode something...";
+            document.body.classList.remove('flux-model');
         }
     }
     
@@ -201,6 +207,9 @@ document.addEventListener('DOMContentLoaded', function() {
     function initModel() {
         if (currentModel === 'flux') {
             textarea.placeholder = "Describe the image you want to generate...";
+            document.body.classList.add('flux-model');
+        } else {
+            document.body.classList.remove('flux-model');
         }
     }
     
@@ -360,7 +369,10 @@ document.addEventListener('DOMContentLoaded', function() {
                 </svg>
             `;
         } else {
-            avatarDiv.innerHTML = '<i class="fa-solid fa-user"></i>';
+            avatarDiv.innerHTML = `
+               <svg class="user-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20">
+                   <path fill="currentColor" d="M5 5a5 5 0 0 1 10 0v2A5 5 0 0 1 5 7zM0 16.68A19.9 19.9 0 0 1 10 14c3.64 0 7.06.97 10 2.68V20H0z"/>
+               </svg>            `;
         }
         
         contentDiv.innerHTML = formatMessage(content);
@@ -409,6 +421,10 @@ document.addEventListener('DOMContentLoaded', function() {
                 }
             };
             
+            renderer.image = function(href, title, text) {
+                return `<img src="${href}" alt="${text}" class="user-message-image" ${title ? `title="${title}"` : ''}>`;
+            };
+            
             const markedOptions = {
                 renderer: renderer,
                 highlight: function(code, language) {
@@ -427,20 +443,207 @@ document.addEventListener('DOMContentLoaded', function() {
             
             return html;
         } catch (error) {
-            console.error('Ошибка форматирования сообщения:', error);
+            console.error('Error formatting message:', error);
             return sanitizeInput(content).replace(/\n/g, '<br>');
         }
+    }
+
+    function handleImageUpload(event) {
+        const file = event.target.files[0];
+        if (!file) return;
+        
+        if (!isValidImageFile(file)) return;
+        
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            uploadedImage = {
+                file: file,
+                base64Data: e.target.result,
+                type: file.type
+            };
+            
+            displayImagePreview(e.target.result);
+        };
+        
+        reader.readAsDataURL(file); 
+    }
+
+    function isValidImageFile(file) {
+        const validTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
+        if (!validTypes.includes(file.type)) {
+            alert('Please upload a valid image file (JPEG, PNG, GIF, or WEBP)');
+            return false;
+        }
+        
+        if (file.size > 5 * 1024 * 1024) {
+            alert('Image size should be less than 5MB');
+            return false;
+        }
+        
+        return true;
+    }
+
+    function displayImagePreview(imageData) {
+        const existingPreview = chatInput.querySelector('.uploaded-image-preview');
+        if (existingPreview) {
+            chatInput.removeChild(existingPreview);
+        }
+        
+        const previewContainer = document.createElement('div');
+        previewContainer.className = 'uploaded-image-preview';
+        
+        const img = document.createElement('img');
+        img.src = imageData;
+        
+        const removeButton = document.createElement('button');
+        removeButton.className = 'remove-image-button';
+        removeButton.innerHTML = '<i class="fa-solid fa-xmark"></i>';
+        removeButton.onclick = removeUploadedImage;
+        
+        previewContainer.appendChild(img);
+        previewContainer.appendChild(removeButton);
+        
+        chatInput.insertBefore(previewContainer, textarea);
+        
+        textarea.placeholder = "Add a message about this image...";
+        
+        textarea.style.height = '50px';
+        
+        const isMobile = window.innerWidth <= 600;
+        if (isMobile) {
+            textarea.style.width = 'calc(100% - 70px)';
+        }
+    }
+    
+    function removeUploadedImage() {
+        const previewContainer = chatInput.querySelector('.uploaded-image-preview');
+        if (previewContainer) {
+            chatInput.removeChild(previewContainer);
+        }
+        
+        uploadedImage = null;
+        imageUploadInput.value = '';
+        textarea.placeholder = currentModel === 'flux' ? "Describe the image you want to generate..." : "Ask bearCode something...";
+        
+        if (window.innerWidth <= 600) {
+            textarea.style.width = '';
+        }
+    }
+    
+    async function sendImageForAnalysis() {
+        if (!uploadedImage || !uploadedImage.base64Data) return;
+        
+        const imageData = uploadedImage.base64Data;
+        const userContent = textarea.value.trim() || 'Analyze this image';
+        
+        removeUploadedImage();
+        textarea.value = '';
+        resetTextareaHeight();
+        
+        isProcessing = true;
+        setInputState(true);
+        
+        const messageDiv = createUserImageMessage(userContent, imageData);
+        chatMessages.appendChild(messageDiv);
+        
+        if (typingIndicator.parentNode === chatMessages) {
+            chatMessages.removeChild(typingIndicator);
+        }
+        chatMessages.appendChild(typingIndicator);
+        typingIndicator.classList.remove('hidden');
+        
+        smoothScrollToBottom();
+        
+        try {
+            abortController = new AbortController();
+            const response = await fetch(API.ANALYZE_IMAGE, {
+                method: 'POST',
+                body: JSON.stringify({
+                    image: imageData,
+                    chat_id: currentChatId,
+                    message: userContent
+                }),
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-User-Session-ID': userSessionId
+                },
+                signal: abortController.signal
+            });
+            
+            if (!response.ok) {
+                const error = await response.json();
+                throw new Error(error.error || 'Failed to analyze image');
+            }
+            
+            const data = await response.json();
+            addMessageToChat('assistant', data.response);
+            
+        } catch (error) {
+            if (error.name !== 'AbortError') {
+                console.error('Error analyzing image:', error);
+                addMessageToChat('assistant', `Failed to analyze the image: ${error.message}`);
+            }
+        } finally {
+            typingIndicator.classList.add('hidden');
+            isProcessing = false;
+            setInputState(false);
+            abortController = null;
+        }
+    }
+ 
+    function createUserImageMessage(text, imageData) {
+        const messageDiv = document.createElement('div');
+        messageDiv.className = 'message user';
+        
+        const avatarDiv = document.createElement('div');
+        avatarDiv.className = 'message-avatar';
+        avatarDiv.innerHTML = `
+            <svg class="user-icon" viewBox="0 0 448 512" xmlns="http://www.w3.org/2000/svg">
+                <path fill="currentColor" d="M304 128a80 80 0 1 0 -160 0 80 80 0 1 0 160 0zM96 128a128 128 0 1 1 256 0A128 128 0 1 1 96 128zM49.3 464H398.7c-8.9-63.3-63.3-112-129-112H178.3c-65.7 0-120.1 48.7-129 112zM0 482.3C0 383.8 79.8 304 178.3 304h91.4C368.2 304 448 383.8 448 482.3c0 16.4-13.3 29.7-29.7 29.7H29.7C13.3 512 0 498.7 0 482.3z"/>
+            </svg>
+        `;
+        
+        const contentDiv = document.createElement('div');
+        contentDiv.className = 'message-content user-message-with-image';
+        
+        const textParagraph = document.createElement('p');
+        textParagraph.textContent = text;
+        contentDiv.appendChild(textParagraph);
+        
+        const imageObj = document.createElement('img');
+        imageObj.src = imageData;
+        imageObj.className = 'user-message-image';
+        contentDiv.appendChild(imageObj);
+        
+        const analysisRequestTag = document.createElement('div');
+        analysisRequestTag.className = 'image-analysis-request';
+        analysisRequestTag.textContent = 'Image analysis request';
+        contentDiv.appendChild(analysisRequestTag);
+        
+        messageDiv.appendChild(contentDiv);
+        messageDiv.appendChild(avatarDiv);
+        
+        return messageDiv;
     }
     
     async function sendMessage() {
         const message = textarea.value.trim();
         
-        if (isProcessing && abortController) {
-            stopGeneration();
+        if (isProcessing) {
+            if (abortController) {
+                stopGeneration();
+            }
             return;
         }
         
-        if (message !== '' && !isProcessing) {
+        if (!message && !uploadedImage) return;
+        
+        if (uploadedImage) {
+            await sendImageForAnalysis();
+            return;
+        }
+        
+        if (message !== '') {
             isProcessing = true;
             abortController = new AbortController();
             toggleSendButtonState(true);
@@ -609,6 +812,39 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     });
     
+    textarea.addEventListener('paste', function(e) {
+        const clipboardData = e.clipboardData || window.clipboardData;
+        if (!clipboardData) return;
+        
+        const items = clipboardData.items;
+        if (!items) return;
+        
+        for (let i = 0; i < items.length; i++) {
+            if (items[i].type.indexOf('image') !== -1) {
+                e.preventDefault();
+                
+                const file = items[i].getAsFile();
+                if (!file) continue;
+                
+                if (!isValidImageFile(file)) return;
+                
+                const reader = new FileReader();
+                reader.onload = function(event) {
+                    uploadedImage = {
+                        file: file,
+                        base64Data: event.target.result,
+                        type: file.type
+                    };
+                    
+                    displayImagePreview(event.target.result);
+                };
+                
+                reader.readAsDataURL(file);
+                return;
+            }
+        }
+    });
+    
     textarea.addEventListener('input', function() {
         this.style.height = 'auto';
         const newHeight = Math.min(this.scrollHeight, 150);
@@ -644,6 +880,9 @@ document.addEventListener('DOMContentLoaded', function() {
             setModel(this.dataset.model);
         });
     });
+    
+    imageUploadInput.addEventListener('change', handleImageUpload);
+    imageUploadButton.addEventListener('click', () => imageUploadInput.click());
     
     initTheme();
     initModel();

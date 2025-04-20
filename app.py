@@ -1,10 +1,13 @@
 import os
 import json
+import base64
+import secrets
+import asyncio
 from datetime import datetime
 from pathlib import Path
 from typing import Dict, List, Optional, Any
-import asyncio
 
+import aiofiles
 from quart import Quart, request, websocket, render_template, send_from_directory, jsonify, after_this_request
 from hypercorn.config import Config
 from hypercorn.asyncio import serve
@@ -12,10 +15,10 @@ from pydantic import BaseModel
 from dotenv import load_dotenv
 from colorama import init, Fore, Style
 
-init(autoreset=True)
-
-from ai_service import generate_ai_response
+from ai_service import generate_ai_response, analyze_image, analyze_image_base64
 from image_service import generate_image_url
+
+init(autoreset=True)
 
 print(f"{Fore.GREEN}✓ {Fore.CYAN}Initializing bearCode AI Assistant...{Style.RESET_ALL}")
 
@@ -254,16 +257,151 @@ async def generate_image():
         print(f"{Fore.RED}✗ Error in generate_image endpoint: {str(e)}{Style.RESET_ALL}")
         return jsonify({"error": str(e)}), 500
 
+@app.route("/api/analyze-image", methods=["POST"])
+async def analyze_uploaded_image():
+    task = None
+    try:
+        data = await request.get_json()
+        image_data = data.get('image')
+        chat_id = data.get('chat_id', 'default')
+        message = data.get('message', 'Analyze this image')
+        
+        if not image_data or not image_data.startswith('data:image/'):
+            return jsonify({"error": "No valid image data provided"}), 400
+        
+        user_id = get_user_identifier()
+        user_chat = ensure_user_chat_exists(user_id, chat_id)
+        
+        user_chat.append(
+            Message(
+                role="user",
+                content=f"{message}\n\n[Image attached]",
+                timestamp=datetime.now()
+            )
+        )
+        
+        task = asyncio.create_task(analyze_image_base64(image_data, message))
+        
+        @after_this_request
+        def on_request_end(response):
+            if task and not task.done():
+                task.cancel()
+                print(f"{Fore.YELLOW}ℹ Client disconnected, cancelled image analysis task{Style.RESET_ALL}")
+            return response
+        
+        try:
+            print(f"{Fore.CYAN}ℹ Analyzing image from base64 data{Style.RESET_ALL}")
+            analysis = await task
+            
+            user_chat.append(
+                Message(
+                    role="assistant",
+                    content=analysis,
+                    timestamp=datetime.now()
+                )
+            )
+            
+            return jsonify({
+                "response": analysis,
+                "timestamp": datetime.now().isoformat()
+            })
+            
+        except asyncio.CancelledError:
+            print(f"{Fore.YELLOW}ℹ Image analysis was cancelled by client{Style.RESET_ALL}")
+            return jsonify({"error": "Image analysis cancelled"}), 499
+            
+        except Exception as e:
+            error_message = f"Failed to analyze image: {str(e)}"
+            print(f"{Fore.RED}✗ {error_message}{Style.RESET_ALL}")
+            
+            user_chat.append(
+                Message(
+                    role="assistant",
+                    content=f"I'm sorry, I couldn't analyze that image. Error: {str(e)}",
+                    timestamp=datetime.now()
+                )
+            )
+            
+            return jsonify({"error": error_message}), 500
+    
+    except Exception as e:
+        print(f"{Fore.RED}✗ Error in analyze_image endpoint: {str(e)}{Style.RESET_ALL}")
+        return jsonify({"error": str(e)}), 500
+
+@app.errorhandler(400)
+async def bad_request(error):
+    return jsonify({
+        "error": "Bad Request",
+        "message": "The server could not understand your request. Please check your input and try again.",
+        "status_code": 400
+    }), 400
+
+@app.errorhandler(401)
+async def unauthorized(error):
+    return jsonify({
+        "error": "Unauthorized",
+        "message": "Authentication is required to access this resource.",
+        "status_code": 401
+    }), 401
+
+@app.errorhandler(403)
+async def forbidden(error):
+    return jsonify({
+        "error": "Forbidden",
+        "message": "You don't have permission to access this resource.",
+        "status_code": 403
+    }), 403
+
 @app.errorhandler(404)
 async def not_found(error):
-    return jsonify({"error": "Not found"}), 404
+    return jsonify({
+        "error": "Not Found",
+        "message": "The requested resource could not be found on the server.",
+        "status_code": 404
+    }), 404
+
+@app.errorhandler(405)
+async def method_not_allowed(error):
+    return jsonify({
+        "error": "Method Not Allowed",
+        "message": "The method specified in the request is not allowed for the resource.",
+        "status_code": 405
+    }), 405
+
+@app.errorhandler(408)
+async def request_timeout(error):
+    return jsonify({
+        "error": "Request Timeout",
+        "message": "The server timed out waiting for the request.",
+        "status_code": 408
+    }), 408
+
+@app.errorhandler(429)
+async def too_many_requests(error):
+    return jsonify({
+        "error": "Too Many Requests",
+        "message": "You have sent too many requests in a given amount of time.",
+        "status_code": 429
+    }), 429
 
 @app.errorhandler(500)
 async def server_error(error):
-    return jsonify({"error": "Server error"}), 500
+    return jsonify({
+        "error": "Server Error",
+        "message": "The server encountered an unexpected condition that prevented it from fulfilling the request.",
+        "status_code": 500
+    }), 500
+
+@app.errorhandler(503)
+async def service_unavailable(error):
+    return jsonify({
+        "error": "Service Unavailable",
+        "message": "The server is currently unavailable or overloaded. Please try again later.",
+        "status_code": 503
+    }), 503
 
 if __name__ == "__main__":
-    port = int(os.environ.get("PORT", 8000))
+    port = int(os.environ.get("PORT", 8080))
     
     config = Config()
     config.bind = [f"127.0.0.1:{port}"]
