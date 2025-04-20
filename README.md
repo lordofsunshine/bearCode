@@ -7,6 +7,9 @@
 
 A modern AI-powered coding assistant with chat and image generation capabilities.
 
+## v.0.0.5 🏔
+- The full list of new features in the update is available on our [Discord server](https://discord.gg/FtvCbrc7ZU).
+
 ## Features
 
 - 💬 AI coding assistant powered by GPT models
@@ -16,7 +19,7 @@ A modern AI-powered coding assistant with chat and image generation capabilities
 
 ## Screenshot
 
-<img src="https://i.ibb.co/HT4N8ZLH/image.png" alt="bearCode AI Assistant Interface" width="800"/>
+<img src="https://i.ibb.co/3yZ2CSrT/image.png" alt="bearCode AI Assistant Interface" width="800"/>
 
 ## Quick Start
 
