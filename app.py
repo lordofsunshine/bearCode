@@ -15,7 +15,7 @@ from pydantic import BaseModel
 from dotenv import load_dotenv
 from colorama import init, Fore, Style
 
-from ai_service import generate_ai_response, analyze_image, analyze_image_base64
+from ai_service import generate_ai_response, analyze_image, analyze_image_base64, get_prompt_templates
 from image_service import generate_image_url
 
 init(autoreset=True)
@@ -81,6 +81,7 @@ async def chat():
         chat_id = data.get("chat_id", "default")
         user_message = data.get("message", "")
         model = data.get("model", "gpt-4o-mini")
+        template_id = data.get("template_id")
         
         if not user_message:
             return jsonify({"error": "Message cannot be empty"}), 400
@@ -104,7 +105,12 @@ async def chat():
             })
         
         try:
-            response = await generate_ai_response(user_message, history_for_ai, model=model)
+            response = await generate_ai_response(
+                user_message, 
+                history_for_ai, 
+                model=model,
+                template_id=template_id
+            )
             
             user_chat.append(
                 Message(
@@ -155,9 +161,10 @@ async def clear_chat():
         user_id = get_user_identifier()
         
         if user_id in chat_history and chat_id in chat_history[user_id]:
-            chat_history[user_id][chat_id] = [get_default_message()]
-        else:
-            ensure_user_chat_exists(user_id, chat_id)
+            if chat_id == "default":
+                chat_history[user_id][chat_id] = [get_default_message()]
+            else:
+                del chat_history[user_id][chat_id]
         
         return jsonify({"status": "success"})
     
@@ -170,6 +177,13 @@ async def new_chat():
     try:
         new_chat_id = f"chat_{datetime.now().timestamp()}"
         user_id = get_user_identifier()
+        
+        data = await request.get_json()
+        old_chat_id = data.get("previous_chat_id") if data else None
+        
+        if old_chat_id and user_id in chat_history and old_chat_id in chat_history[user_id]:
+            if old_chat_id != "default":
+                del chat_history[user_id][old_chat_id]
         
         ensure_user_chat_exists(user_id, new_chat_id)
         
@@ -262,25 +276,58 @@ async def analyze_uploaded_image():
     task = None
     try:
         data = await request.get_json()
-        image_data = data.get('image')
+        
+        images_data = data.get('images', [])
+        single_image = data.get('image')
+        
+        if not images_data and single_image:
+            images_data = [single_image]
+        
         chat_id = data.get('chat_id', 'default')
         message = data.get('message', 'Analyze this image')
         
-        if not image_data or not image_data.startswith('data:image/'):
+        if not images_data or not any(img.startswith('data:image/') for img in images_data):
             return jsonify({"error": "No valid image data provided"}), 400
         
         user_id = get_user_identifier()
         user_chat = ensure_user_chat_exists(user_id, chat_id)
         
+        image_count = len(images_data)
+        image_text = "image" if image_count == 1 else "images"
+        
         user_chat.append(
             Message(
                 role="user",
-                content=f"{message}\n\n[Image attached]",
+                content=f"{message}\n\n[{image_count} {image_text} attached]",
                 timestamp=datetime.now()
             )
         )
         
-        task = asyncio.create_task(analyze_image_base64(image_data, message))
+        async def analyze_multiple_images():
+            analysis_results = []
+            
+            for i, img_data in enumerate(images_data):
+                if not img_data.startswith('data:image/'):
+                    continue
+                    
+                img_count_text = f" (Image {i+1}/{image_count})" if image_count > 1 else ""
+                img_prompt = f"{message}{img_count_text}"
+                
+                try:
+                    result = await analyze_image_base64(img_data, img_prompt)
+                    analysis_results.append(result)
+                except Exception as e:
+                    analysis_results.append(f"Error analyzing image {i+1}: {str(e)}")
+            
+            if image_count == 1:
+                return analysis_results[0]
+            else:
+                combined = f"Analysis of {image_count} images:\n\n"
+                for i, result in enumerate(analysis_results):
+                    combined += f"--- Image {i+1} ---\n{result}\n\n"
+                return combined
+        
+        task = asyncio.create_task(analyze_multiple_images())
         
         @after_this_request
         def on_request_end(response):
@@ -290,7 +337,7 @@ async def analyze_uploaded_image():
             return response
         
         try:
-            print(f"{Fore.CYAN}ℹ Analyzing image from base64 data{Style.RESET_ALL}")
+            print(f"{Fore.CYAN}ℹ Analyzing {image_count} image(s){Style.RESET_ALL}")
             analysis = await task
             
             user_chat.append(
@@ -326,6 +373,47 @@ async def analyze_uploaded_image():
     
     except Exception as e:
         print(f"{Fore.RED}✗ Error in analyze_image endpoint: {str(e)}{Style.RESET_ALL}")
+        return jsonify({"error": str(e)}), 500
+
+@app.route("/api/analyze-url", methods=["POST"])
+async def analyze_url_endpoint():
+    try:
+        data = await request.get_json()
+        url = data.get("url", "")
+        
+        if not url:
+            return jsonify({"error": "URL cannot be empty"}), 400
+        
+        from web_scraper import analyze_url
+        
+        content, error = await analyze_url(url)
+        
+        if error:
+            return jsonify({
+                "success": False,
+                "error": error,
+                "url": url
+            }), 400
+        
+        return jsonify({
+            "success": True,
+            "url": url,
+            "content_length": len(content),
+            "content_preview": content[:300] + "..." if len(content) > 300 else content,
+            "timestamp": datetime.now().isoformat()
+        })
+    
+    except Exception as e:
+        print(f"{Fore.RED}✗ Error in analyze-url endpoint: {str(e)}{Style.RESET_ALL}")
+        return jsonify({"error": str(e)}), 500
+
+@app.route("/api/prompt-templates", methods=["GET"])
+async def get_available_templates():
+    try:
+        templates = await get_prompt_templates()
+        return jsonify({"templates": templates})
+    except Exception as e:
+        print(f"{Fore.RED}✗ Error fetching prompt templates: {str(e)}{Style.RESET_ALL}")
         return jsonify({"error": str(e)}), 500
 
 @app.errorhandler(400)

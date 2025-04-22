@@ -19,7 +19,8 @@ document.addEventListener('DOMContentLoaded', function() {
     let currentModel = localStorage.getItem('bearcode-model') || 'gpt-4o-mini';
     let abortController = null;
     let userSessionId = getUserSessionId();
-    let uploadedImage = null;
+    let uploadedImages = [];
+    let currentImageIndex = 0;
     
     const API = {
         CHAT: '/api/chat',
@@ -42,9 +43,15 @@ document.addEventListener('DOMContentLoaded', function() {
     }
     
     function openSettings() {
-        chatMessages.classList.add('hidden');
+        chatMessages.classList.add('fade-out');
         settingsPanel.classList.remove('hidden');
+        settingsPanel.classList.add('fade-in');
         chatInput.classList.add('disabled');
+        
+        setTimeout(() => {
+            chatMessages.classList.add('hidden');
+            chatMessages.classList.remove('fade-out');
+        }, 300);
         
         const currentTheme = localStorage.getItem('bearcode-theme') || 'light';
         themeOptions.forEach(option => {
@@ -65,8 +72,19 @@ document.addEventListener('DOMContentLoaded', function() {
     }
     
     function closeSettings() {
-        settingsPanel.classList.add('hidden');
-        chatMessages.classList.remove('hidden');
+        settingsPanel.classList.add('fade-out');
+        
+        setTimeout(() => {
+            settingsPanel.classList.add('hidden');
+            settingsPanel.classList.remove('fade-in', 'fade-out');
+            chatMessages.classList.remove('hidden', 'fade-out');
+            chatMessages.classList.add('fade-in');
+            
+            setTimeout(() => {
+                chatMessages.classList.remove('fade-in');
+            }, 300);
+        }, 300);
+        
         chatInput.classList.remove('disabled');
     }
     
@@ -85,8 +103,16 @@ document.addEventListener('DOMContentLoaded', function() {
         if (disabled) {
             textarea.setAttribute('disabled', 'disabled');
             textarea.placeholder = "Wait for the response...";
+            imageUploadButton.setAttribute('disabled', 'disabled');
+            imageUploadInput.setAttribute('disabled', 'disabled');
+            imageUploadButton.style.opacity = '0.5';
+            imageUploadButton.style.cursor = 'not-allowed';
         } else {
             textarea.removeAttribute('disabled');
+            imageUploadButton.removeAttribute('disabled');
+            imageUploadInput.removeAttribute('disabled');
+            imageUploadButton.style.opacity = '1';
+            imageUploadButton.style.cursor = 'pointer';
             
             if (currentModel === 'flux') {
                 textarea.placeholder = "Describe the image you want to generate...";
@@ -145,6 +171,8 @@ document.addEventListener('DOMContentLoaded', function() {
         if (model === 'flux') {
             textarea.placeholder = "Describe the image you want to generate...";
             document.body.classList.add('flux-model');
+            
+            removeAllImages();
         } else {
             textarea.placeholder = "Ask bearCode something...";
             document.body.classList.remove('flux-model');
@@ -449,20 +477,32 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     function handleImageUpload(event) {
+        if (currentModel === 'flux') {
+            imageUploadInput.value = '';
+            return;
+        }
+        
         const file = event.target.files[0];
         if (!file) return;
         
         if (!isValidImageFile(file)) return;
+
+        if (uploadedImages.length >= 3) {
+            alert('You can upload a maximum of 3 images. Please remove an image first.');
+            return;
+        }
         
         const reader = new FileReader();
         reader.onload = function(e) {
-            uploadedImage = {
+            const newImage = {
                 file: file,
                 base64Data: e.target.result,
                 type: file.type
             };
             
-            displayImagePreview(e.target.result);
+            uploadedImages.push(newImage);
+            currentImageIndex = uploadedImages.length - 1;
+            displayImagePreview();
         };
         
         reader.readAsDataURL(file); 
@@ -483,30 +523,66 @@ document.addEventListener('DOMContentLoaded', function() {
         return true;
     }
 
-    function displayImagePreview(imageData) {
+    function displayImagePreview() {
         const existingPreview = chatInput.querySelector('.uploaded-image-preview');
         if (existingPreview) {
             chatInput.removeChild(existingPreview);
+        }
+        
+        if (uploadedImages.length === 0) {
+            imageUploadInput.value = '';
+            textarea.placeholder = currentModel === 'flux' ? "Describe the image you want to generate..." : "Ask bearCode something...";
+            
+            if (window.innerWidth <= 600) {
+                textarea.style.width = '';
+            }
+            return;
         }
         
         const previewContainer = document.createElement('div');
         previewContainer.className = 'uploaded-image-preview';
         
         const img = document.createElement('img');
-        img.src = imageData;
+        img.src = uploadedImages[currentImageIndex].base64Data;
+        previewContainer.appendChild(img);
+        
+        if (uploadedImages.length > 1) {
+            const counterIndicator = document.createElement('div');
+            counterIndicator.className = 'image-counter';
+            counterIndicator.textContent = `${currentImageIndex + 1}/${uploadedImages.length}`;
+            previewContainer.appendChild(counterIndicator);
+            
+            const prevButton = document.createElement('button');
+            prevButton.className = 'image-nav-button prev-image';
+            prevButton.innerHTML = '<i class="fa-solid fa-chevron-left"></i>';
+            prevButton.onclick = function(e) {
+                e.stopPropagation();
+                navigateImages(-1);
+            };
+            previewContainer.appendChild(prevButton);
+            
+            const nextButton = document.createElement('button');
+            nextButton.className = 'image-nav-button next-image';
+            nextButton.innerHTML = '<i class="fa-solid fa-chevron-right"></i>';
+            nextButton.onclick = function(e) {
+                e.stopPropagation();
+                navigateImages(1);
+            };
+            previewContainer.appendChild(nextButton);
+        }
         
         const removeButton = document.createElement('button');
         removeButton.className = 'remove-image-button';
         removeButton.innerHTML = '<i class="fa-solid fa-xmark"></i>';
-        removeButton.onclick = removeUploadedImage;
-        
-        previewContainer.appendChild(img);
+        removeButton.onclick = function(e) {
+            e.stopPropagation();
+            removeCurrentImage();
+        };
         previewContainer.appendChild(removeButton);
         
         chatInput.insertBefore(previewContainer, textarea);
         
         textarea.placeholder = "Add a message about this image...";
-        
         textarea.style.height = '50px';
         
         const isMobile = window.innerWidth <= 600;
@@ -515,13 +591,35 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
     
-    function removeUploadedImage() {
+    function navigateImages(direction) {
+        if (uploadedImages.length <= 1) return;
+        
+        currentImageIndex = (currentImageIndex + direction + uploadedImages.length) % uploadedImages.length;
+        displayImagePreview();
+    }
+    
+    function removeCurrentImage() {
+        uploadedImages.splice(currentImageIndex, 1);
+        
+        if (currentImageIndex >= uploadedImages.length && uploadedImages.length > 0) {
+            currentImageIndex = uploadedImages.length - 1;
+        }
+        
+        if (uploadedImages.length > 0) {
+            displayImagePreview();
+        } else {
+            removeAllImages();
+        }
+    }
+    
+    function removeAllImages() {
         const previewContainer = chatInput.querySelector('.uploaded-image-preview');
         if (previewContainer) {
             chatInput.removeChild(previewContainer);
         }
         
-        uploadedImage = null;
+        uploadedImages = [];
+        currentImageIndex = 0;
         imageUploadInput.value = '';
         textarea.placeholder = currentModel === 'flux' ? "Describe the image you want to generate..." : "Ask bearCode something...";
         
@@ -530,20 +628,32 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
     
+    function removeUploadedImage() {
+        removeAllImages();
+    }
+    
     async function sendImageForAnalysis() {
-        if (!uploadedImage || !uploadedImage.base64Data) return;
+        if (currentModel === 'flux') {
+            removeAllImages();
+            return;
+        }
         
-        const imageData = uploadedImage.base64Data;
+        if (uploadedImages.length === 0) return;
+        
         const userContent = textarea.value.trim() || 'Analyze this image';
         
-        removeUploadedImage();
+        const imageDataArray = uploadedImages.map(img => img.base64Data);
+        
+        const allImages = imageDataArray;
+        
+        removeAllImages();
         textarea.value = '';
         resetTextareaHeight();
         
         isProcessing = true;
         setInputState(true);
         
-        const messageDiv = createUserImageMessage(userContent, imageData);
+        const messageDiv = createUserImageMessage(userContent, imageDataArray);
         chatMessages.appendChild(messageDiv);
         
         if (typingIndicator.parentNode === chatMessages) {
@@ -559,7 +669,7 @@ document.addEventListener('DOMContentLoaded', function() {
             const response = await fetch(API.ANALYZE_IMAGE, {
                 method: 'POST',
                 body: JSON.stringify({
-                    image: imageData,
+                    images: allImages,
                     chat_id: currentChatId,
                     message: userContent
                 }),
@@ -591,7 +701,7 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
  
-    function createUserImageMessage(text, imageData) {
+    function createUserImageMessage(text, imageDataArray) {
         const messageDiv = document.createElement('div');
         messageDiv.className = 'message user';
         
@@ -610,10 +720,51 @@ document.addEventListener('DOMContentLoaded', function() {
         textParagraph.textContent = text;
         contentDiv.appendChild(textParagraph);
         
-        const imageObj = document.createElement('img');
-        imageObj.src = imageData;
-        imageObj.className = 'user-message-image';
-        contentDiv.appendChild(imageObj);
+        if (imageDataArray.length > 0) {
+            const imageCarousel = document.createElement('div');
+            imageCarousel.className = 'user-message-image-carousel';
+            
+            const imageObj = document.createElement('img');
+            imageObj.src = imageDataArray[0];
+            imageObj.className = 'user-message-image';
+            imageCarousel.appendChild(imageObj);
+            
+            if (imageDataArray.length > 1) {
+                const imageCounter = document.createElement('div');
+                imageCounter.className = 'image-counter';
+                imageCounter.textContent = `1/${imageDataArray.length}`;
+                imageCarousel.appendChild(imageCounter);
+                
+                let currentIdx = 0;
+                
+                const prevBtn = document.createElement('button');
+                prevBtn.className = 'image-nav-button prev-image';
+                prevBtn.innerHTML = '<i class="fa-solid fa-chevron-left"></i>';
+                
+                const nextBtn = document.createElement('button');
+                nextBtn.className = 'image-nav-button next-image';
+                nextBtn.innerHTML = '<i class="fa-solid fa-chevron-right"></i>';
+                
+                prevBtn.onclick = function(e) {
+                    e.stopPropagation();
+                    currentIdx = (currentIdx - 1 + imageDataArray.length) % imageDataArray.length;
+                    imageObj.src = imageDataArray[currentIdx];
+                    imageCounter.textContent = `${currentIdx + 1}/${imageDataArray.length}`;
+                };
+                
+                nextBtn.onclick = function(e) {
+                    e.stopPropagation();
+                    currentIdx = (currentIdx + 1) % imageDataArray.length;
+                    imageObj.src = imageDataArray[currentIdx];
+                    imageCounter.textContent = `${currentIdx + 1}/${imageDataArray.length}`;
+                };
+                
+                imageCarousel.appendChild(prevBtn);
+                imageCarousel.appendChild(nextBtn);
+            }
+            
+            contentDiv.appendChild(imageCarousel);
+        }
         
         const analysisRequestTag = document.createElement('div');
         analysisRequestTag.className = 'image-analysis-request';
@@ -636,9 +787,9 @@ document.addEventListener('DOMContentLoaded', function() {
             return;
         }
         
-        if (!message && !uploadedImage) return;
+        if (!message && !uploadedImages.length) return;
         
-        if (uploadedImage) {
+        if (uploadedImages.length > 0) {
             await sendImageForAnalysis();
             return;
         }
@@ -716,6 +867,16 @@ document.addEventListener('DOMContentLoaded', function() {
     }
     
     async function clearChat() {
+        if (isProcessing && abortController) {
+            abortController.abort();
+            isProcessing = false;
+            setInputState(false);
+            toggleSendButtonState(false);
+            if (typingIndicator.parentNode === chatMessages) {
+                typingIndicator.classList.add('hidden');
+            }
+        }
+        
         try {
             const response = await fetch(API.CLEAR, {
                 method: 'POST',
@@ -741,13 +902,26 @@ document.addEventListener('DOMContentLoaded', function() {
     }
     
     async function createNewChat() {
+        if (isProcessing && abortController) {
+            abortController.abort();
+            isProcessing = false;
+            setInputState(false);
+            toggleSendButtonState(false);
+            if (typingIndicator.parentNode === chatMessages) {
+                typingIndicator.classList.add('hidden');
+            }
+        }
+        
         try {
             const response = await fetch(API.NEW, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
                     'X-User-Session-ID': userSessionId
-                }
+                },
+                body: JSON.stringify({
+                    previous_chat_id: currentChatId
+                })
             });
             
             const data = await response.json();
@@ -819,6 +993,10 @@ document.addEventListener('DOMContentLoaded', function() {
         const items = clipboardData.items;
         if (!items) return;
         
+        if (currentModel === 'flux') {
+            return;
+        }
+        
         for (let i = 0; i < items.length; i++) {
             if (items[i].type.indexOf('image') !== -1) {
                 e.preventDefault();
@@ -828,15 +1006,21 @@ document.addEventListener('DOMContentLoaded', function() {
                 
                 if (!isValidImageFile(file)) return;
                 
+                if (uploadedImages.length >= 3) {
+                    alert('You can upload a maximum of 3 images. Please remove an image first.');
+                    return;
+                }
+                
                 const reader = new FileReader();
                 reader.onload = function(event) {
-                    uploadedImage = {
+                    uploadedImages.push({
                         file: file,
                         base64Data: event.target.result,
                         type: file.type
-                    };
+                    });
                     
-                    displayImagePreview(event.target.result);
+                    currentImageIndex = uploadedImages.length - 1;
+                    displayImagePreview();
                 };
                 
                 reader.readAsDataURL(file);

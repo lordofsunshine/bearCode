@@ -5,3 +5,4 @@ python-dotenv
 pydantic
 g4f==0.5.1.2
 colorama
+beautifulsoup4
