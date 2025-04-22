@@ -7,7 +7,7 @@
 
 A modern AI-powered coding assistant with chat and image generation capabilities.
 
-## v.0.0.5 🏔
+## v.0.0.6 🏜
 - The full list of new features in the update is available on our [Discord server](https://discord.gg/FtvCbrc7ZU).
 
 ## Features
