@@ -7,7 +7,7 @@
 
 A modern AI-powered coding assistant with chat and image generation capabilities.
 
-## v.0.0.6 🏜
+## v.0.0.7 🗽
 - The full list of new features in the update is available on our [Discord server](https://discord.gg/FtvCbrc7ZU).
 
 ## Features
@@ -35,7 +35,7 @@ pip install -r requirements.txt
 python app.py
 ```
 
-The server will start at http://127.0.0.1:8000
+The server will start at http://0.0.0.0:8080
 
 ## Technology Stack
 
