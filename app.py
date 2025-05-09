@@ -15,7 +15,7 @@ from pydantic import BaseModel
 from dotenv import load_dotenv
 from colorama import init, Fore, Style
 
-from ai_service import generate_ai_response, analyze_image, analyze_image_base64, get_prompt_templates
+from ai_service import generate_ai_response, analyze_image, analyze_image_base64, get_prompt_templates, analyze_multiple_images_base64
 from image_service import generate_image_url
 
 init(autoreset=True)
@@ -39,6 +39,13 @@ class ChatRequest(BaseModel):
 class ChatResponse(BaseModel):
     response: str
     
+class FeedbackRequest(BaseModel):
+    message_content: str
+    feedback_type: str
+    feedback_text: str
+    chat_id: str
+    timestamp: Optional[datetime] = None
+
 chat_history: Dict[str, Dict[str, List[Message]]] = {}
 
 print(f"{Fore.GREEN}✓ {Fore.CYAN}Chat history initialized{Style.RESET_ALL}")
@@ -303,31 +310,7 @@ async def analyze_uploaded_image():
             )
         )
         
-        async def analyze_multiple_images():
-            analysis_results = []
-            
-            for i, img_data in enumerate(images_data):
-                if not img_data.startswith('data:image/'):
-                    continue
-                    
-                img_count_text = f" (Image {i+1}/{image_count})" if image_count > 1 else ""
-                img_prompt = f"{message}{img_count_text}"
-                
-                try:
-                    result = await analyze_image_base64(img_data, img_prompt)
-                    analysis_results.append(result)
-                except Exception as e:
-                    analysis_results.append(f"Error analyzing image {i+1}: {str(e)}")
-            
-            if image_count == 1:
-                return analysis_results[0]
-            else:
-                combined = f"Analysis of {image_count} images:\n\n"
-                for i, result in enumerate(analysis_results):
-                    combined += f"--- Image {i+1} ---\n{result}\n\n"
-                return combined
-        
-        task = asyncio.create_task(analyze_multiple_images())
+        task = asyncio.create_task(analyze_multiple_images_base64(images_data, message))
         
         @after_this_request
         def on_request_end(response):
@@ -337,7 +320,7 @@ async def analyze_uploaded_image():
             return response
         
         try:
-            print(f"{Fore.CYAN}ℹ Analyzing {image_count} image(s){Style.RESET_ALL}")
+            print(f"{Fore.CYAN}ℹ Analyzing {image_count} image(s) together{Style.RESET_ALL}")
             analysis = await task
             
             user_chat.append(
@@ -358,13 +341,13 @@ async def analyze_uploaded_image():
             return jsonify({"error": "Image analysis cancelled"}), 499
             
         except Exception as e:
-            error_message = f"Failed to analyze image: {str(e)}"
+            error_message = f"Failed to analyze images: {str(e)}"
             print(f"{Fore.RED}✗ {error_message}{Style.RESET_ALL}")
             
             user_chat.append(
                 Message(
                     role="assistant",
-                    content=f"I'm sorry, I couldn't analyze that image. Error: {str(e)}",
+                    content=f"I'm sorry, I couldn't analyze those images. Error: {str(e)}",
                     timestamp=datetime.now()
                 )
             )
@@ -405,6 +388,50 @@ async def analyze_url_endpoint():
     
     except Exception as e:
         print(f"{Fore.RED}✗ Error in analyze-url endpoint: {str(e)}{Style.RESET_ALL}")
+        return jsonify({"error": str(e)}), 500
+
+@app.route("/api/feedback", methods=["POST"])
+async def submit_feedback():
+    try:
+        data = await request.get_json()
+        
+        message_content = data.get("message_content", "")
+        feedback_type = data.get("feedback_type", "")
+        feedback_text = data.get("feedback_text", "")
+        chat_id = data.get("chat_id", "default")
+        timestamp = data.get("timestamp", datetime.now().isoformat())
+        
+        if not message_content or not feedback_type:
+            return jsonify({"error": "Missing required fields"}), 400
+        
+        user_id = get_user_identifier()
+        
+        ai_response = ""
+        if feedback_type == "positive":
+            print(f"{Fore.GREEN}✓ {Fore.CYAN}Positive feedback received{Style.RESET_ALL}")
+            ai_response = await generate_ai_response(
+                f"A user gave positive feedback on this message: \"{message_content}\". The user said: \"{feedback_text}\". " +
+                "How should I improve my responses based on this positive feedback? Please analyze what went well and provide guidance. " +
+                "IMPORTANT: DO NOT use markdown formatting in your response as this will be displayed in a console. Use plain text only.",
+                model="gpt-4o-mini"
+            )
+        else:
+            print(f"{Fore.YELLOW}! {Fore.CYAN}Negative feedback received{Style.RESET_ALL}")
+            ai_response = await generate_ai_response(
+                f"A user gave negative feedback on this message: \"{message_content}\". The user said: \"{feedback_text}\". " +
+                "How should I improve my responses to avoid this issue in the future? Please analyze what went wrong and provide guidance. " +
+                "IMPORTANT: DO NOT use markdown formatting in your response as this will be displayed in a console. Use plain text only.",
+                model="gpt-4o-mini"
+            )
+        
+        print(f"{Fore.GREEN}✓ {Fore.CYAN}Feedback received: {feedback_type}{Style.RESET_ALL}")
+        print(f"{Fore.MAGENTA}AI Response to Feedback:{Style.RESET_ALL}")
+        print(f"{Fore.WHITE}{ai_response}{Style.RESET_ALL}")
+        
+        return jsonify({"status": "success"})
+    
+    except Exception as e:
+        print(f"{Fore.RED}✗ Error in feedback endpoint: {str(e)}{Style.RESET_ALL}")
         return jsonify({"error": str(e)}), 500
 
 @app.route("/api/prompt-templates", methods=["GET"])

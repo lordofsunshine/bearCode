@@ -273,6 +273,58 @@ async def analyze_image_base64(base64_image_url: str, prompt: str = "Analyze thi
     except Exception as e:
         return f"I encountered an error while analyzing the image. Technical details: {str(e)}"
 
+async def analyze_multiple_images_base64(base64_image_urls: List[str], prompt: str = "Analyze these images") -> str:
+    try:
+        message_content = [{"type": "text", "text": prompt}]
+        
+        for base64_image_url in base64_image_urls:
+            if base64_image_url.startswith('data:image/'):
+                message_content.append({
+                    "type": "image_url",
+                    "image_url": {
+                        "url": base64_image_url
+                    }
+                })
+        
+        messages = [
+            {
+                "role": "system", 
+                "content": "You are bearCode, an AI assistant that can analyze multiple images together. " +
+                          "Consider all provided images as part of the same context. " +
+                          "Analyze the relationship between images if relevant. " +
+                          "Provide a comprehensive analysis that takes into account all images together. " +
+                          "When writing mathematical expressions, use simple, readable notation instead of complex symbols: " +
+                          "- Use standard arithmetic operators: +, -, *, /, ^ for powers " +
+                          "- Write fractions as numerator/denominator (e.g., 3/4 instead of \\frac{3}{4}) " +
+                          "- Write square roots as sqrt(x) instead of \\sqrt{x} " +
+                          "- Use simple parentheses () for grouping " +
+                          "- Avoid LaTeX syntax and complex mathematical symbols that may render poorly " +
+                          "- For probability expressions, use P(event) notation instead of complex symbols " +
+                          "- When explaining steps, use plain language and standard notation that's easy to read"
+            },
+            {
+                "role": "user",
+                "content": message_content
+            }
+        ]
+        
+        loop = asyncio.get_event_loop()
+        response = await loop.run_in_executor(
+            None,
+            lambda: client.chat.completions.create(
+                model="gpt-4o-mini",
+                messages=messages,
+                web_search=False
+            )
+        )
+        
+        analysis = response.choices[0].message.content
+        
+        return analysis
+        
+    except Exception as e:
+        return f"I encountered an error while analyzing the images. Technical details: {str(e)}"
+
 async def process_url_content(url: str) -> str:
     try:
         from web_scraper import analyze_url

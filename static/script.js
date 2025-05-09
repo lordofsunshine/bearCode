@@ -13,6 +13,11 @@ document.addEventListener('DOMContentLoaded', function() {
     const modelOptions = document.querySelectorAll('.model-option');
     const imageUploadInput = document.getElementById('image-upload');
     const imageUploadButton = document.querySelector('.image-upload-button');
+    const feedbackOverlay = document.querySelector('.feedback-overlay');
+    const feedbackDialog = document.querySelector('.feedback-dialog');
+    const feedbackTextarea = document.querySelector('.feedback-dialog textarea');
+    const cancelFeedbackBtn = document.querySelector('.feedback-dialog-button.cancel');
+    const submitFeedbackBtn = document.querySelector('.feedback-dialog-button.submit');
     
     let currentChatId = "default";
     let isProcessing = false;
@@ -21,6 +26,7 @@ document.addEventListener('DOMContentLoaded', function() {
     let userSessionId = getUserSessionId();
     let uploadedImages = [];
     let currentImageIndex = 0;
+    let currentFeedbackMessage = null;
     
     const API = {
         CHAT: '/api/chat',
@@ -28,7 +34,8 @@ document.addEventListener('DOMContentLoaded', function() {
         CLEAR: '/api/clear',
         NEW: '/api/new',
         GENERATE_IMAGE: '/api/generate-image',
-        ANALYZE_IMAGE: '/api/analyze-image'
+        ANALYZE_IMAGE: '/api/analyze-image',
+        FEEDBACK: '/api/feedback'
     };
     
     function getUserSessionId() {
@@ -136,7 +143,7 @@ document.addEventListener('DOMContentLoaded', function() {
             avatarDiv.className = 'message-avatar';
             avatarDiv.innerHTML = `
                 <svg class="bear-icon" viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg">
-                    <path fill="currentColor" d="M256 128c-39.8 0-74.2 23.3-90.5 56.9-8.6-14.7-24.4-24.9-42.8-24.9-27.5 0-49.7 22.2-49.7 49.7v64c0 25.6 19.2 46.6 44.1 49.3 8.2 21.1 22.8 38.1 41.5 48.8c0 0 0 0 0 0c16.6 9.8 34.2 15.2 52.6 15.2s36-5.4 52.6-15.2c0 0 0 0 0 0c18.7-10.7 33.3-27.7 41.5-48.8c24.9-2.7 44.1-23.7 44.1-49.3v-64c0-27.5-22.2-49.7-49.7-49.7c-18.4 0-34.2 10.2-42.8 24.9C330.2 151.3 295.8 128 256 128zm-43.5 96c17.8 0 32-14.2 32-32c0-2.7-2.2-4.9-4.9-4.9s-4.9 2.2-4.9 4.9c0 12.3-9.9 22.2-22.2 22.2c-2.7 0-4.9 2.2-4.9 4.9s2.2 4.9 4.9 4.9zm87 0c17.8 0 32-14.2 32-32c0-2.7-2.2-4.9-4.9-4.9s-4.9 2.2-4.9 4.9c0 12.3-9.9 22.2-22.2 22.2c-2.7 0-4.9 2.2-4.9 4.9s2.2 4.9 4.9 4.9zM305.7 308c-6.2 14.3-16.4 25.9-28.9 33.9l0 0c-12.3 7.1-25.5 10.7-38.8 10.7s-26.5-3.6-38.8-10.7l0 0c-12.5-8-22.7-19.5-28.9-33.9c-1.8-4.1-6.8-2.9-7.3 1.5c-.5 4.1-.3 8.3 .8 12.5c6.5 24.7 24 45 47 56.3s51.6 11.3 74.6 0s40.5-31.6 47-56.3c1.1-4.3 1.2-8.5 .8-12.5c-.5-4.4-5.5-5.6-7.3-1.5h-.1zM64 128a64 64 0 1 0 0-128 64 64 0 1 0 0 128zm384 0a64 64 0 1 0 0-128 64 64 0 1 0 0 128z"/>
+                    <path fill="currentColor" d="M256 42c-19 0-36.7 7.4-50 19.8C192.7 49.4 175 42 156 42c-48.6 0-88 39.4-88 88 0 30.4 15.4 57.2 38.9 73C106.3 195.5 98 189 88 182c-1.4 7.5-2 15.1-2 23 0 70.7 57.3 128 128 128 11 0 21.8-1.4 32-4v8h-48c-17.7 0-32 14.3-32 32v56c0 4.4 3.6 8 8 8h48c4.4 0 8-3.6 8-8v-24h48v24c0 4.4 3.6 8 8 8h48c4.4 0 8-3.6 8-8v-56c0-17.7-14.3-32-32-32h-48v-8c10.2 2.6 21 4 32 4 70.7 0 128-57.3 128-128 0-7.9-.6-15.5-2-23-10 7-18.3 13.5-18.9 21-23.5-15.8-38.9-42.6-38.9-73 0-48.6-39.4-88-88-88zM156 90a40 40 0 110 80 40 40 0 010-80zm200 0a40 40 0 110 80 40 40 0 010-80zM196 192a16 16 0 100 32 16 16 0 000-32zm120 0a16 16 0 100 32 16 16 0 000-32zm-120 80h120s-20 32-60 32-60-32-60-32z"/>
                 </svg>
             `;
             
@@ -281,7 +288,7 @@ document.addEventListener('DOMContentLoaded', function() {
         avatarDiv.className = 'message-avatar';
         avatarDiv.innerHTML = `
             <svg class="bear-icon" viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg">
-                <path fill="currentColor" d="M256 128c-39.8 0-74.2 23.3-90.5 56.9-8.6-14.7-24.4-24.9-42.8-24.9-27.5 0-49.7 22.2-49.7 49.7v64c0 25.6 19.2 46.6 44.1 49.3 8.2 21.1 22.8 38.1 41.5 48.8c0 0 0 0 0 0c16.6 9.8 34.2 15.2 52.6 15.2s36-5.4 52.6-15.2c0 0 0 0 0 0c18.7-10.7 33.3-27.7 41.5-48.8c24.9-2.7 44.1-23.7 44.1-49.3v-64c0-27.5-22.2-49.7-49.7-49.7c-18.4 0-34.2 10.2-42.8 24.9C330.2 151.3 295.8 128 256 128zm-43.5 96c17.8 0 32-14.2 32-32c0-2.7-2.2-4.9-4.9-4.9s-4.9 2.2-4.9 4.9c0 12.3-9.9 22.2-22.2 22.2c-2.7 0-4.9 2.2-4.9 4.9s2.2 4.9 4.9 4.9zm87 0c17.8 0 32-14.2 32-32c0-2.7-2.2-4.9-4.9-4.9s-4.9 2.2-4.9 4.9c0 12.3-9.9 22.2-22.2 22.2c-2.7 0-4.9 2.2-4.9 4.9s2.2 4.9 4.9 4.9zM305.7 308c-6.2 14.3-16.4 25.9-28.9 33.9l0 0c-12.3 7.1-25.5 10.7-38.8 10.7s-26.5-3.6-38.8-10.7l0 0c-12.5-8-22.7-19.5-28.9-33.9c-1.8-4.1-6.8-2.9-7.3 1.5c-.5 4.1-.3 8.3 .8 12.5c6.5 24.7 24 45 47 56.3s51.6 11.3 74.6 0s40.5-31.6 47-56.3c1.1-4.3 1.2-8.5 .8-12.5c-.5-4.4-5.5-5.6-7.3-1.5h-.1zM64 128a64 64 0 1 0 0-128 64 64 0 1 0 0 128zm384 0a64 64 0 1 0 0-128 64 64 0 1 0 0 128z"/>
+                <path fill="currentColor" d="M256 42c-19 0-36.7 7.4-50 19.8C192.7 49.4 175 42 156 42c-48.6 0-88 39.4-88 88 0 30.4 15.4 57.2 38.9 73C106.3 195.5 98 189 88 182c-1.4 7.5-2 15.1-2 23 0 70.7 57.3 128 128 128 11 0 21.8-1.4 32-4v8h-48c-17.7 0-32 14.3-32 32v56c0 4.4 3.6 8 8 8h48c4.4 0 8-3.6 8-8v-24h48v24c0 4.4 3.6 8 8 8h48c4.4 0 8-3.6 8-8v-56c0-17.7-14.3-32-32-32h-48v-8c10.2 2.6 21 4 32 4 70.7 0 128-57.3 128-128 0-7.9-.6-15.5-2-23-10 7-18.3 13.5-18.9 21-23.5-15.8-38.9-42.6-38.9-73 0-48.6-39.4-88-88-88zM156 90a40 40 0 110 80 40 40 0 010-80zm200 0a40 40 0 110 80 40 40 0 010-80zM196 192a16 16 0 100 32 16 16 0 000-32zm120 0a16 16 0 100 32 16 16 0 000-32zm-120 80h120s-20 32-60 32-60-32-60-32z"/>
             </svg>
         `;
         
@@ -387,31 +394,22 @@ document.addEventListener('DOMContentLoaded', function() {
         const avatarDiv = document.createElement('div');
         avatarDiv.className = 'message-avatar';
         
-        const contentDiv = document.createElement('div');
-        contentDiv.className = 'message-content';
-        
         if (role === 'assistant') {
             avatarDiv.innerHTML = `
                 <svg class="bear-icon" viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg">
-                    <path fill="currentColor" d="M256 128c-39.8 0-74.2 23.3-90.5 56.9-8.6-14.7-24.4-24.9-42.8-24.9-27.5 0-49.7 22.2-49.7 49.7v64c0 25.6 19.2 46.6 44.1 49.3 8.2 21.1 22.8 38.1 41.5 48.8c0 0 0 0 0 0c16.6 9.8 34.2 15.2 52.6 15.2s36-5.4 52.6-15.2c0 0 0 0 0 0c18.7-10.7 33.3-27.7 41.5-48.8c24.9-2.7 44.1-23.7 44.1-49.3v-64c0-27.5-22.2-49.7-49.7-49.7c-18.4 0-34.2 10.2-42.8 24.9C330.2 151.3 295.8 128 256 128zm-43.5 96c17.8 0 32-14.2 32-32c0-2.7-2.2-4.9-4.9-4.9s-4.9 2.2-4.9 4.9c0 12.3-9.9 22.2-22.2 22.2c-2.7 0-4.9 2.2-4.9 4.9s2.2 4.9 4.9 4.9zm87 0c17.8 0 32-14.2 32-32c0-2.7-2.2-4.9-4.9-4.9s-4.9 2.2-4.9 4.9c0 12.3-9.9 22.2-22.2 22.2c-2.7 0-4.9 2.2-4.9 4.9s2.2 4.9 4.9 4.9zM305.7 308c-6.2 14.3-16.4 25.9-28.9 33.9l0 0c-12.3 7.1-25.5 10.7-38.8 10.7s-26.5-3.6-38.8-10.7l0 0c-12.5-8-22.7-19.5-28.9-33.9c-1.8-4.1-6.8-2.9-7.3 1.5c-.5 4.1-.3 8.3 .8 12.5c6.5 24.7 24 45 47 56.3s51.6 11.3 74.6 0s40.5-31.6 47-56.3c1.1-4.3 1.2-8.5 .8-12.5c-.5-4.4-5.5-5.6-7.3-1.5h-.1zM64 128a64 64 0 1 0 0-128 64 64 0 1 0 0 128zm384 0a64 64 0 1 0 0-128 64 64 0 1 0 0 128z"/>
+                    <path fill="currentColor" d="M256 42c-19 0-36.7 7.4-50 19.8C192.7 49.4 175 42 156 42c-48.6 0-88 39.4-88 88 0 30.4 15.4 57.2 38.9 73C106.3 195.5 98 189 88 182c-1.4 7.5-2 15.1-2 23 0 70.7 57.3 128 128 128 11 0 21.8-1.4 32-4v8h-48c-17.7 0-32 14.3-32 32v56c0 4.4 3.6 8 8 8h48c4.4 0 8-3.6 8-8v-24h48v24c0 4.4 3.6 8 8 8h48c4.4 0 8-3.6 8-8v-56c0-17.7-14.3-32-32-32h-48v-8c10.2 2.6 21 4 32 4 70.7 0 128-57.3 128-128 0-7.9-.6-15.5-2-23-10 7-18.3 13.5-18.9 21-23.5-15.8-38.9-42.6-38.9-73 0-48.6-39.4-88-88-88zM156 90a40 40 0 110 80 40 40 0 010-80zm200 0a40 40 0 110 80 40 40 0 010-80zM196 192a16 16 0 100 32 16 16 0 000-32zm120 0a16 16 0 100 32 16 16 0 000-32zm-120 80h120s-20 32-60 32-60-32-60-32z"/>
                 </svg>
             `;
         } else {
-            avatarDiv.innerHTML = `
-               <svg class="user-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20">
-                   <path fill="currentColor" d="M5 5a5 5 0 0 1 10 0v2A5 5 0 0 1 5 7zM0 16.68A19.9 19.9 0 0 1 10 14c3.64 0 7.06.97 10 2.68V20H0z"/>
-               </svg>            `;
+            avatarDiv.innerHTML = '<i class="fas fa-user user-icon"></i>';
         }
         
+        const contentDiv = document.createElement('div');
+        contentDiv.className = 'message-content';
         contentDiv.innerHTML = formatMessage(content);
         
-        if (role === 'assistant') {
-            messageDiv.appendChild(avatarDiv);
-            messageDiv.appendChild(contentDiv);
-        } else {
-            messageDiv.appendChild(contentDiv);
-            messageDiv.appendChild(avatarDiv);
-        }
+        messageDiv.appendChild(avatarDiv);
+        messageDiv.appendChild(contentDiv);
         
         return messageDiv;
     }
@@ -424,6 +422,33 @@ document.addEventListener('DOMContentLoaded', function() {
         }
         
         chatMessages.appendChild(messageElement);
+        
+        if (role === 'assistant' && !content.includes("Hello! I'm bearCode, your AI coding assistant. How can I help you today?")) {
+            const feedbackDiv = document.createElement('div');
+            feedbackDiv.className = 'message-feedback';
+            
+            feedbackDiv.innerHTML = `
+                <button class="feedback-button positive" aria-label="This response was helpful">
+                    <i class="fas fa-thumbs-up"></i>
+                </button>
+                <button class="feedback-button negative" aria-label="This response was not helpful">
+                    <i class="fas fa-thumbs-down"></i>
+                </button>
+                <button class="feedback-button regenerate" aria-label="Regenerate response">
+                    <i class="fas fa-arrows-rotate"></i>
+                </button>
+            `;
+            
+            chatMessages.appendChild(feedbackDiv);
+            
+            const likeButton = feedbackDiv.querySelector('.feedback-button.positive');
+            const dislikeButton = feedbackDiv.querySelector('.feedback-button.negative');
+            const regenerateButton = feedbackDiv.querySelector('.feedback-button.regenerate');
+            
+            likeButton.addEventListener('click', () => handleFeedback(messageElement, feedbackDiv, content, 'positive'));
+            dislikeButton.addEventListener('click', () => openFeedbackDialog(messageElement, feedbackDiv, content));
+            regenerateButton.addEventListener('click', () => regenerateResponse(content));
+        }
         
         if (!content.includes("I'm generating an image based on:")) {
             chatMessages.appendChild(typingIndicator);
@@ -778,82 +803,18 @@ document.addEventListener('DOMContentLoaded', function() {
     }
     
     async function sendMessage() {
-        const message = textarea.value.trim();
+        const messageText = textarea.value.trim();
         
-        if (isProcessing) {
-            if (abortController) {
-                stopGeneration();
-            }
-            return;
-        }
+        if (!messageText && uploadedImages.length === 0) return;
         
-        if (!message && !uploadedImages.length) return;
+        addMessageToChat('user', messageText);
+        textarea.value = '';
+        resetTextareaHeight();
         
         if (uploadedImages.length > 0) {
             await sendImageForAnalysis();
-            return;
-        }
-        
-        if (message !== '') {
-            isProcessing = true;
-            abortController = new AbortController();
-            toggleSendButtonState(true);
-            setInputState(true);
-            
-            addMessageToChat('user', message);
-            
-            textarea.value = '';
-            resetTextareaHeight();
-            
-            smoothScrollToBottom();
-            
-            try {
-                if (currentModel === 'flux') {
-                    await generateImage(message);
-                } else {
-                    typingIndicator.classList.remove('hidden');
-                    
-                    const response = await fetch(API.CHAT, {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json',
-                            'X-User-Session-ID': userSessionId
-                        },
-                        body: JSON.stringify({
-                            chat_id: currentChatId,
-                            message: message,
-                            model: currentModel
-                        }),
-                        signal: abortController.signal
-                    });
-                
-                    const data = await response.json();
-                
-                    typingIndicator.classList.add('hidden');
-                
-                    if (data.response) {
-                        addMessageToChat('assistant', data.response);
-                
-                        smoothScrollToBottom();
-                    } else if (data.error) {
-                        console.error('API error:', data.error);
-                        addMessageToChat('assistant', `Sorry, I encountered an error: ${data.error}`);
-                    }
-                }
-            } catch (error) {
-                if (error.name === 'AbortError') {
-                    console.log('Request was aborted');
-                    typingIndicator.classList.add('hidden');
-                } else {
-                    console.error('Failed to send message:', error);
-                    typingIndicator.classList.add('hidden');
-                    addMessageToChat('assistant', 'Sorry, there was an error connecting to the server. Please try again.');
-                }
-            } finally {
-                isProcessing = false;
-                toggleSendButtonState(false);
-                setInputState(false);
-            }
+        } else {
+            await sendUserMessage(messageText);
         }
     }
     
@@ -1075,4 +1036,181 @@ document.addEventListener('DOMContentLoaded', function() {
     setTimeout(() => {
         textarea.focus();
     }, 500);
+
+    function handleFeedback(messageElement, feedbackDiv, content, type) {
+        if (type === 'positive') {
+            sendFeedback(content, type, "User found this response helpful");
+            
+            const likeButton = feedbackDiv.querySelector('.feedback-button.positive');
+            likeButton.style.color = '#4CAF50';
+            likeButton.style.transform = 'scale(1.2)';
+            
+            setTimeout(() => {
+                likeButton.style.transform = '';
+            }, 500);
+        }
+    }
+    
+    function openFeedbackDialog(messageElement, feedbackDiv, content) {
+        currentFeedbackMessage = { element: messageElement, feedback: feedbackDiv, content: content };
+        feedbackTextarea.value = '';
+        feedbackOverlay.classList.add('active');
+        feedbackDialog.classList.add('active');
+        feedbackTextarea.focus();
+    }
+    
+    function closeFeedbackDialog() {
+        feedbackOverlay.classList.remove('active');
+        feedbackDialog.classList.remove('active');
+        currentFeedbackMessage = null;
+    }
+    
+    function submitNegativeFeedback() {
+        if (!currentFeedbackMessage) return;
+        
+        const feedbackText = feedbackTextarea.value.trim();
+        if (!feedbackText) {
+            alert('Please provide some feedback to help us improve.');
+            return;
+        }
+        
+        sendFeedback(
+            currentFeedbackMessage.content, 
+            'negative', 
+            feedbackText
+        );
+        
+        const dislikeButton = currentFeedbackMessage.feedback.querySelector('.feedback-button.negative');
+        dislikeButton.style.color = '#FF9800';
+        
+        closeFeedbackDialog();
+    }
+    
+    async function sendFeedback(content, type, feedback) {
+        try {
+            const feedbackData = {
+                message_content: content,
+                feedback_type: type,
+                feedback_text: feedback,
+                chat_id: currentChatId,
+                timestamp: new Date().toISOString()
+            };
+            
+            console.log('Sending feedback:', feedbackData);
+            
+            await fetch(API.FEEDBACK, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-User-Session-ID': userSessionId
+                },
+                body: JSON.stringify(feedbackData)
+            });
+        } catch (error) {
+            console.error('Error sending feedback:', error);
+        }
+    }
+    
+    async function regenerateResponse(previousPrompt) {
+        if (isProcessing) return;
+        
+        const userMessages = document.querySelectorAll('.message.user');
+        if (userMessages.length === 0) return;
+        
+        const lastUserMessage = userMessages[userMessages.length - 1];
+        const userMessageContent = lastUserMessage.querySelector('.message-content').textContent;
+        
+        const assistantMessages = document.querySelectorAll('.message.assistant');
+        if (assistantMessages.length > 0) {
+            const lastAssistantMessage = assistantMessages[assistantMessages.length - 1];
+            const feedbackElement = lastAssistantMessage.nextElementSibling;
+            
+            if (feedbackElement && feedbackElement.classList.contains('message-feedback')) {
+                chatMessages.removeChild(feedbackElement);
+            }
+            
+            chatMessages.removeChild(lastAssistantMessage);
+        }
+        
+        await sendUserMessage(userMessageContent);
+    }
+    
+    async function sendUserMessage(messageText) {
+        if (currentModel === 'flux') {
+            await generateImage(messageText);
+        } else {
+            await sendChatMessage(messageText);
+        }
+    }
+
+    async function sendChatMessage(message) {
+        if (isProcessing) {
+            if (abortController) {
+                stopGeneration();
+            }
+            return;
+        }
+
+        isProcessing = true;
+        abortController = new AbortController();
+        toggleSendButtonState(true);
+        setInputState(true);
+
+        smoothScrollToBottom();
+
+        try {
+            typingIndicator.classList.remove('hidden');
+            
+            const response = await fetch(API.CHAT, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-User-Session-ID': userSessionId
+                },
+                body: JSON.stringify({
+                    chat_id: currentChatId,
+                    message: message,
+                    model: currentModel
+                }),
+                signal: abortController.signal
+            });
+        
+            const data = await response.json();
+        
+            typingIndicator.classList.add('hidden');
+        
+            if (data.response) {
+                addMessageToChat('assistant', data.response);
+                smoothScrollToBottom();
+            } else if (data.error) {
+                console.error('API error:', data.error);
+                addMessageToChat('assistant', `Sorry, I encountered an error: ${data.error}`);
+            }
+        } catch (error) {
+            if (error.name === 'AbortError') {
+                console.log('Request was aborted');
+                typingIndicator.classList.add('hidden');
+            } else {
+                console.error('Failed to send message:', error);
+                typingIndicator.classList.add('hidden');
+                addMessageToChat('assistant', 'Sorry, there was an error connecting to the server. Please try again.');
+            }
+        } finally {
+            isProcessing = false;
+            toggleSendButtonState(false);
+            setInputState(false);
+        }
+    }
+
+    cancelFeedbackBtn.addEventListener('click', closeFeedbackDialog);
+    submitFeedbackBtn.addEventListener('click', submitNegativeFeedback);
+    feedbackOverlay.addEventListener('click', closeFeedbackDialog);
+    
+    feedbackDialog.addEventListener('click', (e) => e.stopPropagation());
+    
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape' && feedbackDialog.classList.contains('active')) {
+            closeFeedbackDialog();
+        }
+    });
 });

@@ -296,7 +296,7 @@ textarea,
     background-color: var(--color-surface-accent);
     display: flex;
     flex-direction: column;
-    gap: 24px;
+    gap: 14px;
     scroll-behavior: smooth;
     transition: background-color 0.5s ease;
 }
@@ -376,11 +376,12 @@ textarea,
 }
 
 .message-content {
-    padding: 18px 24px;
+    flex: 1;
+    padding: 16px 20px;
     border-radius: var(--radius-md);
+    background-color: var(--color-surface-accent);
     box-shadow: var(--shadow-sm);
-    line-height: 1.7;
-    transition: background-color 0.5s ease, color 0.5s ease, box-shadow 0.5s ease;
+    position: relative;
 }
 
 .message.assistant .message-content {
@@ -1783,5 +1784,185 @@ body.flux-model .image-upload-wrapper {
     
     .chat-input {
         gap: 8px;
+    }
+}
+
+.message-feedback {
+    display: flex;
+    gap: 12px;
+    opacity: 0.6;
+    transition: opacity 0.3s ease;
+    margin-left: 60px;
+    margin-bottom: 5px;
+}
+
+.message-feedback:hover {
+    opacity: 1;
+}
+
+.feedback-button {
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 5px;
+    border-radius: 50%;
+    transition: all 0.2s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--color-text-secondary);
+}
+
+.feedback-button:hover {
+    background-color: var(--color-surface);
+    transform: translateY(-2px);
+    color: var(--color-primary);
+}
+
+.feedback-button.positive:hover {
+    color: #4CAF50;
+}
+
+.feedback-button.negative:hover {
+    color: #FF9800;
+}
+
+.feedback-button.regenerate:hover {
+    color: #03A9F4; 
+}
+
+.feedback-button i {
+    font-size: 16px;
+}
+
+.dark-theme .feedback-button:hover {
+    background-color: var(--color-dark-elevated);
+}
+
+.dark-theme .feedback-button.positive:hover {
+    color: #81C784;
+}
+
+.dark-theme .feedback-button.negative:hover {
+    color: #FFB74D;
+}
+
+.dark-theme .feedback-button.regenerate:hover {
+    color: #4FC3F7; 
+}
+
+.feedback-dialog {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background-color: var(--color-surface);
+    border-radius: var(--radius-lg);
+    padding: 20px;
+    width: 90%;
+    max-width: 500px;
+    box-shadow: var(--shadow-md);
+    z-index: 100;
+    display: none;
+}
+
+.feedback-dialog.active {
+    display: block;
+    animation: fadeIn 0.3s ease forwards;
+}
+
+.feedback-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: rgba(0, 0, 0, 0.5);
+    z-index: 99;
+    display: none;
+}
+
+.feedback-overlay.active {
+    display: block;
+    animation: fadeIn 0.3s ease forwards;
+}
+
+.feedback-dialog h3 {
+    font-family: var(--font-heading);
+    margin-bottom: 15px;
+    color: var(--color-text-primary);
+}
+
+.feedback-dialog textarea {
+    width: 100%;
+    padding: 12px;
+    border-radius: var(--radius-md);
+    border: 1px solid var(--color-border-light);
+    background-color: var(--color-surface-input);
+    color: var(--color-text-primary);
+    margin-bottom: 15px;
+    min-height: 100px;
+    resize: vertical;
+}
+
+.feedback-dialog-buttons {
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+}
+
+.feedback-dialog-button {
+    padding: 12px 24px;
+    border-radius: var(--radius-md);
+    font-family: 'Inter';
+    border: none;
+    cursor: pointer;
+    font-weight: 500;
+    transition: all 0.2s ease;
+}
+
+.feedback-dialog-button.submit {
+    background-color: var(--color-primary);
+    color: white;
+}
+
+.feedback-dialog-button.submit:hover {
+    background-color: var(--color-primary-dark);
+}
+
+.feedback-dialog-button.cancel {
+    background-color: var(--color-gray);
+    color: var(--color-text-primary);
+}
+
+.feedback-dialog-button.cancel:hover {
+    background-color: #d0d0d0;
+}
+
+.dark-theme .feedback-dialog {
+    background-color: var(--color-dark-surface);
+}
+
+.dark-theme .feedback-dialog textarea {
+    background-color: var(--color-dark-elevated);
+    border-color: var(--color-dark-border);
+}
+
+.dark-theme .feedback-dialog-button.cancel {
+    background-color: #404040;
+    color: var(--color-dark-text);
+}
+
+.dark-theme .feedback-dialog-button.cancel:hover {
+    background-color: #505050;
+}
+
+@media (max-width: 600px) {
+    .message-feedback {
+        margin-top: 8px;
+    }
+    
+    .feedback-button i {
+        font-size: 14px;
     }
 }
