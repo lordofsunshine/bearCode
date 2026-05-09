@@ -1,48 +1,44 @@
-# bearCode AI Assistant
+# bearCode AI Chat
 
-[![Python](https://img.shields.io/badge/Python-3.9%2B-blue.svg)](https://www.python.org/)
-[![License](https://img.shields.io/badge/License-MIT-green.svg)](https://opensource.org/licenses/MIT)
-[![Quart](https://img.shields.io/badge/Framework-Quart-yellow.svg)](https://quart.palletsprojects.com/)
-[![Discord](https://img.shields.io/discord/1146777619493302383?color=%237289DA&label=Discord&logo=discord&logoColor=white)](https://discord.gg/FtvCbrc7ZU)
-
-A modern AI-powered coding assistant with chat and image generation capabilities.
-
-## v.0.0.7 🗽
-- The full list of new features in the update is available on our [Discord server](https://discord.gg/FtvCbrc7ZU).
+A modern Quart web chat with a server-side AI endpoint. The API key stays in `.env`; the frontend never receives it.
 
 ## Features
 
-- 💬 AI coding assistant powered by GPT models
-- 🖼️ AI image generation with Flux model
-- 🌓 Light/dark theme support
-- 🚀 Fast and responsive web interface
+- Clean chat UI with saved message history
+- Three most recent chats per user session
+- AI-generated short chat titles
+- Typing indicator and animated assistant responses
+- Safer handling for jailbreak and harmful requests
+- Responsive SaaS-style layout for desktop and mobile
 
-## Screenshot
+## Setup
 
-<img src="https://i.ibb.co/3yZ2CSrT/image.png" alt="bearCode AI Assistant Interface" width="800"/>
+Создайте `.env`:
 
-## Quick Start
+```env
+OPENROUTER_API_KEY=your_key_here
+OPENROUTER_MODEL=openrouter/free
+OPENROUTER_SITE_URL=http://127.0.0.1:8080
+OPENROUTER_SITE_NAME=bearCode AI Chat
+```
+
+To use a specific free model, set it with the `:free` suffix, for example:
+
+```env
+OPENROUTER_MODEL=meta-llama/llama-3.2-3b-instruct:free
+```
+
+## Run
 
 ```bash
-# Clone repository
-git clone https://github.com/lordofsunshine/bearCode
-cd bearCode
-
-# Install dependencies
 pip install -r requirements.txt
-
-# Run the application
 python app.py
 ```
 
-The server will start at http://0.0.0.0:8080
+The app will be available at http://127.0.0.1:8080.
 
-## Technology Stack
+## Stack
 
-- **Backend**: Python, Quart, Hypercorn
-- **AI Services**: G4F (GPT-4o-mini and Flux)
-- **Frontend**: HTML, CSS, JavaScript
-
-## Community
-
-Join our [Discord community](https://discord.gg/FtvCbrc7ZU) for support, feature requests, and discussions! 
+- Backend: Python, Quart, Hypercorn, aiohttp
+- AI: Server-side chat completions
+- Frontend: HTML, CSS, JavaScript

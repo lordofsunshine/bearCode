@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>bearCode AI Chat</title>
+    <meta name="description" content="A clean AI chat experience for coding, product work, and everyday problem solving.">
+    <meta name="author" content="bearCode">
+    <meta property="og:title" content="bearCode AI Chat">
+    <meta property="og:description" content="A modern chat interface powered by bearCode.">
+    <meta property="og:type" content="website">
+    <meta property="og:image" content="/static/images/favicon.svg">
+    <link rel="icon" href="/static/images/favicon.svg" type="image/svg+xml">
+    <link rel="apple-touch-icon" href="/static/images/favicon.svg">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/static/styles.css">
+    <script src="https://cdn.jsdelivr.net/npm/marked@11.1.1/marked.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/dompurify/3.0.8/purify.min.js"></script>
+    <script defer src="/static/script.js"></script>
+</head>
+<body>
+    <main class="app-shell">
+        <aside class="sidebar">
+            <a class="brand" href="/" aria-label="bearCode home">
+                <img class="brand-mark" src="/static/images/favicon.svg" alt="">
+                <span>
+                    <strong>bearCode</strong>
+                    <small>AI assistant</small>
+                </span>
+            </a>
+
+            <nav class="quick-actions" aria-label="Chat actions">
+                <button class="ghost-button" id="new-chat" type="button">
+                    <span>+</span>
+                    New chat
+                </button>
+                <button class="ghost-button" id="clear-chat" type="button">
+                    <span>×</span>
+                    Clear current
+                </button>
+            </nav>
+
+            <section class="history-panel" aria-label="Recent chats">
+                <div class="history-header">
+                    <span>Recent chats</span>
+                    <small>Last 3</small>
+                </div>
+                <div class="chat-list" id="chat-list"></div>
+            </section>
+
+            <a class="privacy-link" href="/privacy-policy">Privacy Policy</a>
+        </aside>
+
+        <section class="chat-card" aria-label="AI chat">
+            <header class="chat-header">
+                <div>
+                    <p class="eyebrow">Your coding companion</p>
+                    <h1 id="chat-title">New conversation</h1>
+                </div>
+            </header>
+
+            <div class="messages" id="messages" aria-live="polite">
+                <div class="typing hidden" id="typing-indicator">
+                    <span></span>
+                    <span></span>
+                    <span></span>
+                    <strong>bearCode is typing...</strong>
+                </div>
+            </div>
+
+            <form class="composer" id="chat-form">
+                <textarea id="message-input" rows="1" placeholder="Ask anything about code, bugs, architecture, or product ideas..." aria-label="Message"></textarea>
+                <button class="send-button" id="send-button" type="submit" aria-label="Send message">
+                    <span>→</span>
+                </button>
+            </form>
+        </section>
+    </main>
+</body>
+</html>

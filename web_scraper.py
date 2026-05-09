@@ -7,6 +7,7 @@ from urllib.parse import urlparse
 
 import aiohttp
 from bs4 import BeautifulSoup
+from ddgs import DDGS
 
 async def extract_urls_from_text(text: str) -> List[str]:
     url_pattern = r'https?://(?:[-\w.]|(?:%[\da-fA-F]{2}))+[/\w\.-]*(?:\?[=&\w\.\-]*)*'
@@ -150,6 +151,36 @@ async def analyze_urls_in_text(text: str) -> Dict[str, Any]:
         "count": len(urls),
         "analyzed": len(results),
         "results": results
+    }
+
+async def search_web(query: str, max_results: int = 5) -> Dict[str, Any]:
+    try:
+        loop = asyncio.get_running_loop()
+        results = await loop.run_in_executor(None, lambda: list(DDGS().text(query, max_results=max_results)))
+    except Exception as e:
+        return {
+            "success": False,
+            "query": query,
+            "error": str(e),
+            "results": []
+        }
+
+    normalized_results = []
+    for result in results[:max_results]:
+        title = str(result.get("title") or "").strip()
+        href = str(result.get("href") or result.get("url") or "").strip()
+        body = str(result.get("body") or "").strip()
+        if title or href or body:
+            normalized_results.append({
+                "title": title,
+                "url": href,
+                "snippet": body
+            })
+
+    return {
+        "success": True,
+        "query": query,
+        "results": normalized_results
     }
 
 if __name__ == "__main__":
