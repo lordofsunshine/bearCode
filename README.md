@@ -1,6 +1,6 @@
 # bearCode AI Chat
 
-A modern Quart web chat with a server-side AI endpoint. The API key stays in `.env`; the frontend never receives it.
+A Quart web chat with a server-side AI endpoint. The API key stays in `.env`; the frontend never receives it.
 
 ## Features
 
@@ -20,12 +20,6 @@ OPENROUTER_API_KEY=your_key_here
 OPENROUTER_MODEL=openrouter/free
 OPENROUTER_SITE_URL=http://127.0.0.1:8080
 OPENROUTER_SITE_NAME=bearCode AI Chat
-```
-
-To use a specific free model, set it with the `:free` suffix, for example:
-
-```env
-OPENROUTER_MODEL=meta-llama/llama-3.2-3b-instruct:free
 ```
 
 ## Run
